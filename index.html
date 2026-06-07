@@ -45,31 +45,19 @@
     <div class="slot-machine">
 
       <div class="slot-window" id="win1">
-        <div class="slot-reel" id="reel1">
-          <div>🍇</div><div>🍉</div><div>🍋</div><div>🍌</div>
-          <div>🍎</div><div>🍑</div><div>🍒</div><div>🫐</div>
-          <div>🍇</div><div>🍉</div><div>🍋</div><div>🍌</div>
-        </div>
+        <div class="slot-reel" id="reel1"></div>
       </div>
 
       <div class="slot-separator"></div>
 
       <div class="slot-window" id="win2">
-        <div class="slot-reel" id="reel2">
-          <div>🍒</div><div>🫐</div><div>🍇</div><div>🍉</div>
-          <div>🍋</div><div>🍌</div><div>🍎</div><div>🍑</div>
-          <div>🍒</div><div>🫐</div><div>🍇</div><div>🍉</div>
-        </div>
+        <div class="slot-reel" id="reel2"></div>
       </div>
 
       <div class="slot-separator"></div>
 
       <div class="slot-window" id="win3">
-        <div class="slot-reel" id="reel3">
-          <div>🍌</div><div>🍎</div><div>🍑</div><div>🍒</div>
-          <div>🫐</div><div>🍇</div><div>🍉</div><div>🍋</div>
-          <div>🍌</div><div>🍎</div><div>🍑</div><div>🍒</div>
-        </div>
+        <div class="slot-reel" id="reel3"></div>
       </div>
 
     </div>
@@ -113,160 +101,6 @@
 </div>
 
 <script src="app.js"></script>
-
-<script>
-/* ─── Slot engine ─── */
-
-const SYMBOLS  = ['🍇','🍉','🍋','🍌','🍎','🍑','🍒','🫐'];
-const ITEM_H   = 70; // px per reel item
-const VISIBLE  = 3;  // visible rows
-const CENTER_I = 1;  // center row index
-
-let spinning = false;
-
-function setStatus(msg, active = false) {
-  document.getElementById('statusText').textContent = msg;
-  const dot = document.getElementById('statusDot');
-  dot.classList.toggle('active', active);
-}
-
-function startSpin() {
-  const id = document.getElementById('gachaId').value.trim();
-  if (!id) {
-    setStatus('⚠ Masukkan ID Gacha terlebih dahulu.');
-    shakeInput();
-    return;
-  }
-  if (spinning) return;
-  spinning = true;
-
-  const btn = document.getElementById('spinBtn');
-  btn.disabled = true;
-  setStatus('Memutar...', true);
-
-  // Reset win glow
-  ['win1','win2','win3'].forEach(id => {
-    document.getElementById(id).classList.remove('win-glow');
-  });
-
-  // Decide outcome
-  const isWin = Math.random() < 0.35;
-  let targets;
-  if (isWin) {
-    const sym = rand(0, SYMBOLS.length - 1);
-    targets = [sym, sym, sym];
-  } else {
-    do {
-      targets = [rand(0,7), rand(0,7), rand(0,7)];
-    } while (targets[0] === targets[1] && targets[1] === targets[2]);
-  }
-
-  // Spin each reel with staggered delay
-  const durations = [2000, 2500, 3000];
-  const promises   = [0,1,2].map(i =>
-    spinReel(`reel${i+1}`, targets[i], durations[i], i * 180)
-  );
-
-  Promise.all(promises).then(() => {
-    spinning = false;
-    btn.disabled = false;
-
-    if (isWin) {
-      ['win1','win2','win3'].forEach(id => {
-        document.getElementById(id).classList.add('win-glow');
-      });
-      setStatus('🏆 Jackpot! Kamu menang!', false);
-      setTimeout(() => showResult(true), 600);
-    } else {
-      setStatus('Coba lagi — belum beruntung kali ini.', false);
-      setTimeout(() => showResult(false), 600);
-    }
-  });
-}
-
-function spinReel(reelId, targetIndex, duration, delay) {
-  return new Promise(resolve => {
-    setTimeout(() => {
-      const reel  = document.getElementById(reelId);
-      const count = reel.children.length;
-
-      /* How many full loops + land on target (center row) */
-      const loops     = 4;
-      const totalItems = loops * count + targetIndex + CENTER_I;
-      const finalY    = -(totalItems * ITEM_H);
-
-      /* Reset without transition */
-      reel.style.transition = 'none';
-      reel.style.transform  = 'translateY(0)';
-
-      /* Force reflow */
-      reel.getBoundingClientRect();
-
-      /* Animate */
-      reel.style.transition = `transform ${duration}ms cubic-bezier(0.17, 0.84, 0.44, 1)`;
-      reel.style.transform  = `translateY(${finalY}px)`;
-
-      setTimeout(resolve, duration + 80);
-    }, delay);
-  });
-}
-
-function showResult(isWin) {
-  const overlay = document.getElementById('resultOverlay');
-  const badge   = document.getElementById('resultBadge');
-  const title   = document.getElementById('resultTitle');
-  const desc    = document.getElementById('resultDesc');
-  const emoji   = document.getElementById('resultEmoji');
-
-  if (isWin) {
-    emoji.textContent = '🏆';
-    badge.className   = 'result-badge win';
-    badge.textContent = '● WIN';
-    title.textContent = 'Jackpot!';
-    desc.textContent  = 'Selamat! Kamu berhasil memenangkan hadiah gacha.';
-  } else {
-    emoji.textContent = '😔';
-    badge.className   = 'result-badge lose';
-    badge.textContent = '● Lose';
-    title.textContent = 'Belum Beruntung';
-    desc.textContent  = 'Jangan menyerah, coba lagi dengan ID gacha berikutnya.';
-  }
-
-  overlay.classList.add('show');
-}
-
-function closeResult() {
-  document.getElementById('resultOverlay').classList.remove('show');
-}
-
-function shakeInput() {
-  const inp = document.getElementById('gachaId');
-  inp.style.animation = 'none';
-  inp.getBoundingClientRect();
-  inp.style.animation = 'shake 0.4s ease';
-}
-
-function rand(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-/* Shake keyframes injected */
-const style = document.createElement('style');
-style.textContent = `
-@keyframes shake {
-  0%,100% { transform: translateX(0); }
-  20%      { transform: translateX(-6px); }
-  40%      { transform: translateX(6px); }
-  60%      { transform: translateX(-4px); }
-  80%      { transform: translateX(4px); }
-}`;
-document.head.appendChild(style);
-
-/* Close overlay on backdrop click */
-document.getElementById('resultOverlay').addEventListener('click', function(e) {
-  if (e.target === this) closeResult();
-});
-</script>
 
 </body>
 </html>
