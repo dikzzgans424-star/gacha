@@ -76,7 +76,11 @@ const Slot3x3 = (() => {
 
   /* ── Spin ── */
   async function spin() {
+    /* Guard: tolak jika session sudah selesai */
+    if (window._gameFinished) return;
+
     const btn = document.getElementById('spinGameBtn');
+    if (!btn || btn.disabled) return;   /* cegah double-call */
     btn.disabled = true;
     window.setStatus('🎰 SPINNING...', true);
 
@@ -87,6 +91,9 @@ const Slot3x3 = (() => {
 
     await Promise.all(reels.map((r, i) => animateReel(r, dur[i])));
 
+    /* Cek ulang — kalau game area sudah di-remove saat animasi jalan, abaikan */
+    if (window._gameFinished) return;
+
     const chance = _gacha.isPremium ? 35 : 27;
     const isWin  = Math.random() * 100 < chance;
 
@@ -95,7 +102,7 @@ const Slot3x3 = (() => {
         .forEach(w => w.classList.add('win-glow'));
     }
 
-    btn.disabled = false;
+    /* Biarkan btn tetap disabled — onGameResult akan hapus DOM-nya */
     _onResult(isWin, _gacha.money);
   }
 
