@@ -11,8 +11,9 @@ const resultTitle   = document.getElementById('resultTitle');
 const resultDesc    = document.getElementById('resultDesc');
 
 /* ── State ── */
-let currentFile  = null;
-let currentGacha = null;
+let currentFile   = null;
+let currentGacha  = null;
+let _gameFinished = false; // session lock — reset hanya oleh refresh halaman
 
 /* ── Game registry — daftarkan game baru di sini ── */
 const GAMES = {
@@ -39,7 +40,8 @@ function shakeInput() {
    API
 ──────────────────────────────────────── */
 async function getGachaData() {
-  const res = await fetch('/.netlify/functions/gacha');
+  /* Cache-busting agar browser tidak pakai response lama */
+  const res = await fetch('/.netlify/functions/gacha?_=' + Date.now());
   if (!res.ok) throw new Error('Gagal mengambil data dari server');
   const json = await res.json();
   if (!json.content) throw new Error(json.message || 'Content tidak ditemukan');
@@ -60,8 +62,17 @@ async function saveGachaData(data, sha) {
 
 /* ────────────────────────────────────────
    STEP 1 — CEK ID
+   • Re-fetch fresh setiap kali dipanggil
+   • Blok jika session sudah selesai
 ──────────────────────────────────────── */
 async function startSpin() {
+  /* Kalau session ini sudah ada result, tolak langsung */
+  if (_gameFinished) {
+    setStatus('⛔ Sesi selesai — refresh halaman untuk ID baru.');
+    shakeInput();
+    return;
+  }
+
   const id = document.getElementById('gachaId').value.trim().toUpperCase();
 
   if (!id) {
@@ -75,6 +86,7 @@ async function startSpin() {
   setStatus('🔍 Mengecek ID...', true);
 
   try {
+    /* Fresh fetch setiap kali — deteksi status terbaru dari server */
     currentFile  = await getGachaData();
     currentGacha = currentFile.data.gacha.find(x => x.idgacha.toUpperCase() === id);
 
@@ -124,23 +136,29 @@ function showGachaInfo(gacha) {
   }
 
   infoCard.innerHTML = `
-    <div class="info-row">
-      <span class="info-label">Nama</span>
-      <span class="info-value">${gacha.name || gacha.idgacha}</span>
+    <div class="info-card-header">
+      <span class="info-card-title">Detail Gacha</span>
+      <span class="info-card-id">${gacha.idgacha}</span>
     </div>
-    <div class="info-row">
-      <span class="info-label">Hadiah</span>
-      <span class="info-value gold">Rp ${Number(gacha.money).toLocaleString('id-ID')}</span>
+    <div class="info-grid">
+      <div class="info-cell">
+        <div class="info-cell-label">Nama</div>
+        <div class="info-cell-value">${gacha.name || gacha.idgacha}</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-cell-label">Tier</div>
+        <div class="info-cell-value">${badge}</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-cell-label">Game</div>
+        <div class="info-cell-value">${typeLabel}</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-cell-label">Hadiah</div>
+        <div class="info-cell-value gold">Rp ${Number(gacha.money).toLocaleString('id-ID')}</div>
+      </div>
     </div>
-    <div class="info-row">
-      <span class="info-label">Game</span>
-      <span class="info-value">${typeLabel}</span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Tier</span>
-      <span class="info-value">${badge}</span>
-    </div>
-    <button class="start-game-btn" onclick="revealGame()">Mulai Game</button>
+    <button class="start-game-btn" onclick="revealGame()">▶ &nbsp;Mulai Game</button>
   `;
 
   infoCard.classList.remove('hide');
@@ -151,9 +169,10 @@ function showGachaInfo(gacha) {
 
 /* ────────────────────────────────────────
    STEP 3 — LOAD GAME
+   • Blok jika session sudah selesai
 ──────────────────────────────────────── */
 function revealGame() {
-  if (!currentGacha) return;
+  if (!currentGacha || _gameFinished) return;
 
   const infoCard = document.getElementById('gachaInfoCard');
   if (infoCard) {
@@ -177,19 +196,51 @@ function hideGame() {
 
 /* ────────────────────────────────────────
    RESULT CALLBACK (dipanggil dari game file)
+   • Set _gameFinished = true → semua entry point terblokir
+   • Re-fetch fresh sebelum save untuk dapat SHA terbaru
 ──────────────────────────────────────── */
 async function onGameResult(isWin, money) {
+  /* Tandai session selesai — blok semua aksi lebih lanjut */
+  _gameFinished = true;
+
   currentGacha.status     = true;
   currentGacha.result     = isWin ? 'win' : 'lose';
   currentGacha.finishedAt = Date.now();
 
+  /* Lock UI */
+  const spinGameBtn = document.getElementById('spinGameBtn');
+  if (spinGameBtn) spinGameBtn.disabled = true;
+  const spinBtn = document.getElementById('spinBtn');
+  if (spinBtn) { spinBtn.disabled = true; spinBtn.textContent = '🔒'; }
+  const gachaInput = document.getElementById('gachaId');
+  if (gachaInput) gachaInput.disabled = true;
+
   try {
-    await saveGachaData(currentFile.data, currentFile.sha);
+    /*
+     * Re-fetch fresh data sebelum save.
+     * Ini penting agar SHA yang kita kirim adalah SHA terbaru dari server,
+     * bukan SHA dari fetch pertama (yang bisa sudah stale kalau ada update lain).
+     */
+    const freshFile = await getGachaData();
+    /* Terapkan perubahan ke data fresh */
+    const idx = freshFile.data.gacha.findIndex(
+      x => x.idgacha.toUpperCase() === currentGacha.idgacha.toUpperCase()
+    );
+    if (idx !== -1) {
+      freshFile.data.gacha[idx].status     = true;
+      freshFile.data.gacha[idx].result     = currentGacha.result;
+      freshFile.data.gacha[idx].finishedAt = currentGacha.finishedAt;
+    }
+    await saveGachaData(freshFile.data, freshFile.sha);
   } catch (err) {
     console.error('Save error:', err);
   }
 
   setStatus(isWin ? '🏆 WIN!' : '💀 LOSE');
+
+  /* Hapus game area dari DOM — cegah spin ulang via tombol yang masih ada */
+  hideGame();
+
   showResult(isWin, money);
 }
 
