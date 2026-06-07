@@ -1,0 +1,163 @@
+<!DOCTYPE html><html lang="id"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Miwa Gacha</title><link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css">
+</head><body><div class="bg-orb orb1"></div>
+<div class="bg-orb orb2"></div>
+<div class="bg-orb orb3"></div><div class="container"><div class="header-card">
+
+    <div class="logo-box">
+        🎰
+    </div>
+
+    <h1>MIWA GACHA</h1>
+
+    <p>
+        Premium Slot Experience
+    </p>
+
+</div>
+
+<div class="glass-card">
+
+    <div class="input-title">
+        Masukkan ID Gacha
+    </div>
+
+    <div class="input-wrapper">
+
+        <input
+            id="gachaId"
+            type="text"
+            placeholder="#GCH-XXXXXXXXXXXX"
+            autocomplete="off">
+
+    </div>
+
+    <button
+        id="spinBtn"
+        onclick="startSpin()">
+
+        <span>
+            MULAI SPIN
+        </span>
+
+    </button>
+
+</div>
+
+<div class="slot-card">
+
+    <div class="slot-header">
+        SLOT MACHINE
+    </div>
+
+    <div class="slot-machine">
+
+        <div class="slot-window">
+
+            <div class="slot-reel" id="reel1">
+
+                <div>🍇</div>
+                <div>🍉</div>
+                <div>🍋</div>
+                <div>🍌</div>
+                <div>🍎</div>
+                <div>🍑</div>
+                <div>🍒</div>
+                <div>🫐</div>
+
+            </div>
+
+        </div>
+
+        <div class="slot-window">
+
+            <div class="slot-reel" id="reel2">
+
+                <div>🍇</div>
+                <div>🍉</div>
+                <div>🍋</div>
+                <div>🍌</div>
+                <div>🍎</div>
+                <div>🍑</div>
+                <div>🍒</div>
+                <div>🫐</div>
+
+            </div>
+
+        </div>
+
+        <div class="slot-window">
+
+            <div class="slot-reel" id="reel3">
+
+                <div>🍇</div>
+                <div>🍉</div>
+                <div>🍋</div>
+                <div>🍌</div>
+                <div>🍎</div>
+                <div>🍑</div>
+                <div>🍒</div>
+                <div>🫐</div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="payline"></div>
+
+</div>
+
+<div class="status-card">
+
+    <div class="status-title">
+        STATUS
+    </div>
+
+    <div id="statusText">
+        Menunggu ID Gacha...
+    </div>
+
+</div>
+
+</div><div class="result-overlay" id="resultOverlay"><div class="result-card">
+
+    <div
+        id="resultEmoji"
+        class="result-emoji">
+
+        🎉
+
+    </div>
+
+    <div
+        id="resultTitle"
+        class="result-title">
+
+        WIN
+
+    </div>
+
+    <div
+        id="resultDesc"
+        class="result-desc">
+
+        Jackpot
+
+    </div>
+
+    <button
+        class="close-btn"
+        onclick="closeResult()">
+
+        Tutup
+
+    </button>
+
+</div>
+
+</div><script src="app.js"></script></body>
+</html>
