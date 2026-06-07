@@ -305,9 +305,21 @@ body::after {
   flex-shrink: 0;
 }
 
+/* ── 3x3 Grid Layout ── */
+.slot-grid-3x3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 8px;
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
 .slot-window {
-  width: 100px;
-  height: 210px;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  height: auto;
   border-radius: var(--radius-md);
   background: var(--bg-base);
   border: 1px solid var(--border-mid);
@@ -343,11 +355,11 @@ body::after {
 }
 
 .slot-reel div {
-  height: 70px;
+  height: 90px;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 38px;
+  font-size: 36px;
   user-select: none;
 }
 
@@ -604,12 +616,235 @@ body::after {
   text-transform: uppercase;
 }
 
-/* ── Mobile ── */
-@media (max-width: 420px) {
+/* ── Info Card ── */
+.info-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+  padding: 22px;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.info-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212,175,90,0.35), transparent);
+}
+
+.info-card.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.info-card.hide {
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+}
+
+.info-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.info-card-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.info-card-id {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--gold-dim);
+  font-family: monospace;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.info-cell {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  position: relative;
+}
+
+.info-cell-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+
+.info-cell-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.info-cell-value.gold {
+  color: var(--gold);
+  font-family: 'DM Serif Display', serif;
+  font-size: 16px;
+}
+
+.info-cell.full-width {
+  grid-column: 1 / -1;
+}
+
+.badge-premium {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  background: rgba(212,175,90,0.12);
+  color: var(--gold);
+  border: 1px solid rgba(212,175,90,0.25);
+}
+
+.badge-regular {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  background: rgba(255,255,255,0.05);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-soft);
+}
+
+.start-game-btn {
+  width: 100%;
+  height: 50px;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--bg-base);
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s, opacity 0.15s;
+}
+
+.start-game-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.25), transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.start-game-btn:hover::before { opacity: 1; }
+.start-game-btn:hover { transform: translateY(-1px); }
+.start-game-btn:active { transform: scale(0.97); }
+
+/* ── Spin game button ── */
+.spin-game-btn {
+  width: 100%;
+  height: 52px;
+  margin-top: 20px;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: 'Syne', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--bg-base);
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s, opacity 0.15s;
+}
+
+.spin-game-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.spin-game-btn:hover::before { opacity: 1; }
+.spin-game-btn:hover { transform: translateY(-1px); }
+.spin-game-btn:active { transform: scale(0.97); }
+.spin-game-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Game area ── */
+.game-area {
+  margin-bottom: 14px;
+}
+
+.game-area.slide-in {
+  animation: slideInUp 0.4s cubic-bezier(0.34, 1.3, 0.64, 1) both;
+}
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Info Row (legacy fallback) ── */
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 13px;
+}
+.info-row:last-of-type { border-bottom: none; }
+.info-label { color: var(--text-muted); font-size: 11px; font-weight: 600; }
+.info-value { font-weight: 700; color: var(--text-primary); }
+.info-value.gold { color: var(--gold); }
   body { padding: 24px 14px 48px; }
 
-  .slot-window { width: 88px; height: 200px; }
-  .slot-reel div { font-size: 34px; }
+  .slot-grid-3x3 { max-width: 270px; gap: 6px; }
+  .slot-reel div { font-size: 28px; }
 
   .header-card h1 { font-size: 26px; }
 }
