@@ -20,7 +20,7 @@
     <p class="tagline">Premium Slot Experience</p>
   </div>
 
-  <!-- Input Section -->
+  <!-- Input -->
   <div class="glass-card">
     <span class="input-label">Masukkan ID Gacha</span>
     <div class="input-row">
@@ -32,56 +32,21 @@
           autocomplete="off"
           spellcheck="false">
       </div>
-      <button id="spinBtn" onclick="startSpin()">
-        Spin
-      </button>
+      <button id="spinBtn" onclick="startSpin()">Cek ID</button>
     </div>
   </div>
 
-  <!-- Slot Machine -->
-  <div class="slot-card">
-    <div class="slot-section-label">Slot Machine</div>
-
-    <div class="slot-machine">
-
-      <div class="slot-window" id="win1">
-        <div class="slot-reel" id="reel1"></div>
-      </div>
-
-      <div class="slot-separator"></div>
-
-      <div class="slot-window" id="win2">
-        <div class="slot-reel" id="reel2"></div>
-      </div>
-
-      <div class="slot-separator"></div>
-
-      <div class="slot-window" id="win3">
-        <div class="slot-reel" id="reel3"></div>
-      </div>
-
-    </div>
-
-    <!-- Payline -->
-    <div class="payline-wrap">
-      <div class="payline-track">
-        <div class="payline-dot left"></div>
-        <div class="payline-dot center"></div>
-        <div class="payline-dot right"></div>
-      </div>
-    </div>
-  </div>
+  <!-- Info card & game area → diinject JS -->
 
   <!-- Status -->
   <div class="status-card">
     <div class="status-dot" id="statusDot"></div>
     <div class="status-text-wrap">
       <div class="status-label">Status</div>
-      <div id="statusText">Menunggu ID Gacha...</div>
+      <div id="statusText">Masukkan ID Gacha untuk memulai...</div>
     </div>
   </div>
 
-  <!-- Footer -->
   <div class="footer">
     <span>Miwa &mdash; Premium Casino Engine</span>
   </div>
@@ -100,6 +65,11 @@
   </div>
 </div>
 
+<!-- Game modules — tambah game baru di sini -->
+<script src="games/slot3x3.js"></script>
+<script src="games/roulette.js"></script>
+
+<!-- Core -->
 <script src="app.js"></script>
 
 </body>
