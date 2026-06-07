@@ -1,163 +1,272 @@
-<!DOCTYPE html><html lang="id"><head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Miwa Gacha</title><link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css">
-</head><body><div class="bg-orb orb1"></div>
-<div class="bg-orb orb2"></div>
-<div class="bg-orb orb3"></div><div class="container"><div class="header-card">
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Miwa Gacha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
-    <div class="logo-box">
-        🎰
-    </div>
+<div class="container">
 
+  <!-- Header -->
+  <div class="header-card">
+    <div class="logo-wrap">🎰</div>
     <h1>MIWA GACHA</h1>
+    <p class="tagline">Premium Slot Experience</p>
+  </div>
 
-    <p>
-        Premium Slot Experience
-    </p>
-
-</div>
-
-<div class="glass-card">
-
-    <div class="input-title">
-        Masukkan ID Gacha
-    </div>
-
-    <div class="input-wrapper">
-
+  <!-- Input Section -->
+  <div class="glass-card">
+    <span class="input-label">Masukkan ID Gacha</span>
+    <div class="input-row">
+      <div class="input-wrap">
         <input
-            id="gachaId"
-            type="text"
-            placeholder="#GCH-XXXXXXXXXXXX"
-            autocomplete="off">
-
+          id="gachaId"
+          type="text"
+          placeholder="GCH-XXXXXXXXXXXX"
+          autocomplete="off"
+          spellcheck="false">
+      </div>
+      <button id="spinBtn" onclick="startSpin()">
+        Spin
+      </button>
     </div>
+  </div>
 
-    <button
-        id="spinBtn"
-        onclick="startSpin()">
-
-        <span>
-            MULAI SPIN
-        </span>
-
-    </button>
-
-</div>
-
-<div class="slot-card">
-
-    <div class="slot-header">
-        SLOT MACHINE
-    </div>
+  <!-- Slot Machine -->
+  <div class="slot-card">
+    <div class="slot-section-label">Slot Machine</div>
 
     <div class="slot-machine">
 
-        <div class="slot-window">
-
-            <div class="slot-reel" id="reel1">
-
-                <div>🍇</div>
-                <div>🍉</div>
-                <div>🍋</div>
-                <div>🍌</div>
-                <div>🍎</div>
-                <div>🍑</div>
-                <div>🍒</div>
-                <div>🫐</div>
-
-            </div>
-
+      <div class="slot-window" id="win1">
+        <div class="slot-reel" id="reel1">
+          <div>🍇</div><div>🍉</div><div>🍋</div><div>🍌</div>
+          <div>🍎</div><div>🍑</div><div>🍒</div><div>🫐</div>
+          <div>🍇</div><div>🍉</div><div>🍋</div><div>🍌</div>
         </div>
+      </div>
 
-        <div class="slot-window">
+      <div class="slot-separator"></div>
 
-            <div class="slot-reel" id="reel2">
-
-                <div>🍇</div>
-                <div>🍉</div>
-                <div>🍋</div>
-                <div>🍌</div>
-                <div>🍎</div>
-                <div>🍑</div>
-                <div>🍒</div>
-                <div>🫐</div>
-
-            </div>
-
+      <div class="slot-window" id="win2">
+        <div class="slot-reel" id="reel2">
+          <div>🍒</div><div>🫐</div><div>🍇</div><div>🍉</div>
+          <div>🍋</div><div>🍌</div><div>🍎</div><div>🍑</div>
+          <div>🍒</div><div>🫐</div><div>🍇</div><div>🍉</div>
         </div>
+      </div>
 
-        <div class="slot-window">
+      <div class="slot-separator"></div>
 
-            <div class="slot-reel" id="reel3">
-
-                <div>🍇</div>
-                <div>🍉</div>
-                <div>🍋</div>
-                <div>🍌</div>
-                <div>🍎</div>
-                <div>🍑</div>
-                <div>🍒</div>
-                <div>🫐</div>
-
-            </div>
-
+      <div class="slot-window" id="win3">
+        <div class="slot-reel" id="reel3">
+          <div>🍌</div><div>🍎</div><div>🍑</div><div>🍒</div>
+          <div>🫐</div><div>🍇</div><div>🍉</div><div>🍋</div>
+          <div>🍌</div><div>🍎</div><div>🍑</div><div>🍒</div>
         </div>
+      </div>
 
     </div>
 
-    <div class="payline"></div>
+    <!-- Payline -->
+    <div class="payline-wrap">
+      <div class="payline-track">
+        <div class="payline-dot left"></div>
+        <div class="payline-dot center"></div>
+        <div class="payline-dot right"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="status-card">
+    <div class="status-dot" id="statusDot"></div>
+    <div class="status-text-wrap">
+      <div class="status-label">Status</div>
+      <div id="statusText">Menunggu ID Gacha...</div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span>Miwa &mdash; Premium Casino Engine</span>
+  </div>
 
 </div>
 
-<div class="status-card">
-
-    <div class="status-title">
-        STATUS
-    </div>
-
-    <div id="statusText">
-        Menunggu ID Gacha...
-    </div>
-
+<!-- Result Overlay -->
+<div class="result-overlay" id="resultOverlay">
+  <div class="result-card">
+    <span id="resultEmoji" class="result-emoji">🎉</span>
+    <div id="resultBadge" class="result-badge win">● WIN</div>
+    <div id="resultTitle" class="result-title">Jackpot!</div>
+    <div id="resultDesc" class="result-desc">Selamat, kamu berhasil memenangkan hadiah.</div>
+    <div class="result-divider"></div>
+    <button class="close-btn" onclick="closeResult()">Tutup</button>
+  </div>
 </div>
 
-</div><div class="result-overlay" id="resultOverlay"><div class="result-card">
+<script src="app.js"></script>
 
-    <div
-        id="resultEmoji"
-        class="result-emoji">
+<script>
+/* ─── Slot engine ─── */
 
-        🎉
+const SYMBOLS  = ['🍇','🍉','🍋','🍌','🍎','🍑','🍒','🫐'];
+const ITEM_H   = 70; // px per reel item
+const VISIBLE  = 3;  // visible rows
+const CENTER_I = 1;  // center row index
 
-    </div>
+let spinning = false;
 
-    <div
-        id="resultTitle"
-        class="result-title">
+function setStatus(msg, active = false) {
+  document.getElementById('statusText').textContent = msg;
+  const dot = document.getElementById('statusDot');
+  dot.classList.toggle('active', active);
+}
 
-        WIN
+function startSpin() {
+  const id = document.getElementById('gachaId').value.trim();
+  if (!id) {
+    setStatus('⚠ Masukkan ID Gacha terlebih dahulu.');
+    shakeInput();
+    return;
+  }
+  if (spinning) return;
+  spinning = true;
 
-    </div>
+  const btn = document.getElementById('spinBtn');
+  btn.disabled = true;
+  setStatus('Memutar...', true);
 
-    <div
-        id="resultDesc"
-        class="result-desc">
+  // Reset win glow
+  ['win1','win2','win3'].forEach(id => {
+    document.getElementById(id).classList.remove('win-glow');
+  });
 
-        Jackpot
+  // Decide outcome
+  const isWin = Math.random() < 0.35;
+  let targets;
+  if (isWin) {
+    const sym = rand(0, SYMBOLS.length - 1);
+    targets = [sym, sym, sym];
+  } else {
+    do {
+      targets = [rand(0,7), rand(0,7), rand(0,7)];
+    } while (targets[0] === targets[1] && targets[1] === targets[2]);
+  }
 
-    </div>
+  // Spin each reel with staggered delay
+  const durations = [2000, 2500, 3000];
+  const promises   = [0,1,2].map(i =>
+    spinReel(`reel${i+1}`, targets[i], durations[i], i * 180)
+  );
 
-    <button
-        class="close-btn"
-        onclick="closeResult()">
+  Promise.all(promises).then(() => {
+    spinning = false;
+    btn.disabled = false;
 
-        Tutup
+    if (isWin) {
+      ['win1','win2','win3'].forEach(id => {
+        document.getElementById(id).classList.add('win-glow');
+      });
+      setStatus('🏆 Jackpot! Kamu menang!', false);
+      setTimeout(() => showResult(true), 600);
+    } else {
+      setStatus('Coba lagi — belum beruntung kali ini.', false);
+      setTimeout(() => showResult(false), 600);
+    }
+  });
+}
 
-    </button>
+function spinReel(reelId, targetIndex, duration, delay) {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      const reel  = document.getElementById(reelId);
+      const count = reel.children.length;
 
-</div>
+      /* How many full loops + land on target (center row) */
+      const loops     = 4;
+      const totalItems = loops * count + targetIndex + CENTER_I;
+      const finalY    = -(totalItems * ITEM_H);
 
-</div><script src="app.js"></script></body>
+      /* Reset without transition */
+      reel.style.transition = 'none';
+      reel.style.transform  = 'translateY(0)';
+
+      /* Force reflow */
+      reel.getBoundingClientRect();
+
+      /* Animate */
+      reel.style.transition = `transform ${duration}ms cubic-bezier(0.17, 0.84, 0.44, 1)`;
+      reel.style.transform  = `translateY(${finalY}px)`;
+
+      setTimeout(resolve, duration + 80);
+    }, delay);
+  });
+}
+
+function showResult(isWin) {
+  const overlay = document.getElementById('resultOverlay');
+  const badge   = document.getElementById('resultBadge');
+  const title   = document.getElementById('resultTitle');
+  const desc    = document.getElementById('resultDesc');
+  const emoji   = document.getElementById('resultEmoji');
+
+  if (isWin) {
+    emoji.textContent = '🏆';
+    badge.className   = 'result-badge win';
+    badge.textContent = '● WIN';
+    title.textContent = 'Jackpot!';
+    desc.textContent  = 'Selamat! Kamu berhasil memenangkan hadiah gacha.';
+  } else {
+    emoji.textContent = '😔';
+    badge.className   = 'result-badge lose';
+    badge.textContent = '● Lose';
+    title.textContent = 'Belum Beruntung';
+    desc.textContent  = 'Jangan menyerah, coba lagi dengan ID gacha berikutnya.';
+  }
+
+  overlay.classList.add('show');
+}
+
+function closeResult() {
+  document.getElementById('resultOverlay').classList.remove('show');
+}
+
+function shakeInput() {
+  const inp = document.getElementById('gachaId');
+  inp.style.animation = 'none';
+  inp.getBoundingClientRect();
+  inp.style.animation = 'shake 0.4s ease';
+}
+
+function rand(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+/* Shake keyframes injected */
+const style = document.createElement('style');
+style.textContent = `
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20%      { transform: translateX(-6px); }
+  40%      { transform: translateX(6px); }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX(4px); }
+}`;
+document.head.appendChild(style);
+
+/* Close overlay on backdrop click */
+document.getElementById('resultOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeResult();
+});
+</script>
+
+</body>
 </html>
