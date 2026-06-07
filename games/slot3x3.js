@@ -26,7 +26,7 @@ const Slot3x3 = (() => {
       reel.style.transform  = 'translateY(0px)';
       setTimeout(() => {
         reel.style.transition = `transform ${duration}ms cubic-bezier(.1,.8,.2,1)`;
-        reel.style.transform  = 'translateY(-2100px)';
+        reel.style.transform  = 'translateY(-3240px)'; /* 90px × 36 items */
       }, 20);
       setTimeout(resolve, duration);
     });
