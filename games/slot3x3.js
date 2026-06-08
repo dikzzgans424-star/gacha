@@ -25,9 +25,11 @@ const Slot3x3 = (() => {
   /*
    * ITEM_H: tinggi satu simbol dalam px.
    * HARUS sinkron dengan CSS: .slot-reel div { height: Xpx }
-   * Window height = ITEM_H × 3 (3 baris terlihat)
+   * Window height = ITEM_H × 1 (hanya 1 baris terlihat per slot-window)
+   *
+   * ⚠ CSS .slot-window height = 80px → ITEM_H WAJIB = 80
    */
-  const ITEM_H = 72;
+  const ITEM_H = 80;
   const PAD    = 28;   /* item random sebelum 3 simbol target */
 
   let _gacha    = null;
@@ -43,17 +45,19 @@ const Slot3x3 = (() => {
    *   [PAD item random] [top] [mid] [bot] [1 buffer]
    *
    * Stop translateY = -(PAD * ITEM_H)
-   * → item[PAD]   berada di pixel 0..ITEM_H   = baris atas window
-   * → item[PAD+1] berada di pixel ITEM_H..2×ITEM_H = baris TENGAH ✓
-   * → item[PAD+2] berada di pixel 2×ITEM_H..3×ITEM_H = baris bawah
+   * → item[PAD]   = baris atas  window  (sw1/sw4/sw7)
+   * → item[PAD+1] = baris TENGAH window (sw2/sw5/sw8)  — tapi kita scroll hanya 1 row per window
+   * → item[PAD+2] = baris bawah window  (sw3/sw6/sw9)
+   *
+   * Karena setiap slot-window hanya menampilkan 1 baris (height = ITEM_H),
+   * stop di -(PAD * ITEM_H) berarti item[PAD] muncul tepat di tengah window.
+   * Untuk payline (sw4,sw5,sw6) kita kontrol item[PAD] = simbol yang diinginkan.
    */
-  function buildReel(reel, top, mid, bot) {
+  function buildReel(reel, symbol) {
     const items = [];
     for (let i = 0; i < PAD; i++) items.push(rand(EMOJIS));
-    items.push(top);           /* index PAD   → baris atas   */
-    items.push(mid);           /* index PAD+1 → baris TENGAH */
-    items.push(bot);           /* index PAD+2 → baris bawah  */
-    items.push(rand(EMOJIS));  /* buffer      */
+    items.push(symbol);           /* index PAD → simbol yang tampil saat stop */
+    items.push(rand(EMOJIS));     /* buffer */
 
     reel.innerHTML = items.map(e => `<div>${e}</div>`).join('');
     reel.style.transition = 'none';
@@ -62,25 +66,25 @@ const Slot3x3 = (() => {
 
   /*
    * getSymbolAtCenter — baca simbol yang BENAR-BENAR terlihat
-   * di baris tengah window setelah animasi berhenti.
+   * di window setelah animasi berhenti.
    *
    * Cara: ambil computed translateY, hitung item index yang
-   * ada di tengah window (offset ITEM_H dari top).
+   * visible di window (window height = ITEM_H = 1 item).
    */
   function getSymbolAtCenter(reel) {
-    const style     = window.getComputedStyle(reel);
-    const matrix    = new DOMMatrix(style.transform);
-    const translateY = matrix.m42;                       /* nilai translateY aktual */
-    const scrolled   = Math.abs(translateY);             /* px yang sudah discroll  */
-    const centerIdx  = Math.round((scrolled + ITEM_H) / ITEM_H); /* item di tengah  */
+    const style      = window.getComputedStyle(reel);
+    const matrix     = new DOMMatrix(style.transform);
+    const translateY = matrix.m42;
+    const scrolled   = Math.abs(translateY);
+    const idx        = Math.round(scrolled / ITEM_H);
     const items      = reel.querySelectorAll('div');
-    return items[centerIdx]?.textContent?.trim() ?? '?';
+    return items[idx]?.textContent?.trim() ?? '?';
   }
 
   /* ── Animasi ── */
-  function animateReel(reel, top, mid, bot, duration, delay) {
+  function animateReel(reel, symbol, duration, delay) {
     return new Promise(resolve => {
-      buildReel(reel, top, mid, bot);
+      buildReel(reel, symbol);
       const targetY = -(PAD * ITEM_H);
       setTimeout(() => {
         reel.style.transition = `transform ${duration}ms cubic-bezier(0.08, 0.82, 0.17, 1)`;
@@ -103,32 +107,28 @@ const Slot3x3 = (() => {
         <div class="slot-section-label">Slot 3 × 3</div>
         <div class="slot-grid-3x3">${windows}</div>
         <div class="payline-wrap">
-  <div class="payline-track">
-    <div class="payline-dot left"></div>
-    <div class="payline-dot center"></div>
-    <div class="payline-dot right"></div>
-  </div>
-</div>
+          <div class="payline-track">
+            <div class="payline-dot left"></div>
+            <div class="payline-dot center"></div>
+            <div class="payline-dot right"></div>
+          </div>
+        </div>
 
-<div class="win-rule">
-  <div class="win-rule-title">
-    🎯 Cara Menang
-  </div>
+        <div class="win-rule">
+          <div class="win-rule-title">🎯 Cara Menang</div>
+          <div class="win-rule-grid">
+            🍋 🍒 🍇<br>
+            🍉 🍉 🍉 ← MENANG<br>
+            🍎 🍌 🍑
+          </div>
+          <div class="win-rule-desc">
+            Menang jika 3 simbol pada <strong>BARIS TENGAH</strong> sama.
+          </div>
+        </div>
 
-  <div class="win-rule-grid">
-    🍋 🍒 🍇<br>
-    🍉 🍉 🍉 ← MENANG<br>
-    🍎 🍌 🍑
-  </div>
-
-  <div class="win-rule-desc">
-    Menang jika 3 simbol pada BARIS TENGAH sama.
-  </div>
-</div>
-
-<button class="spin-game-btn" id="spinGameBtn" onclick="Slot3x3.spin()">
-  🎰 &nbsp;SPIN
-</button>
+        <button class="spin-game-btn" id="spinGameBtn" onclick="Slot3x3.spin()">
+          🎰 &nbsp;SPIN
+        </button>
       </div>
     `;
   }
@@ -153,19 +153,18 @@ const Slot3x3 = (() => {
     const existGame = document.getElementById('gameArea');
 
     if (infoCard) {
-  infoCard.parentNode.insertBefore(area, infoCard);
-  infoCard.remove();
-} else if (existGame) {
-  existGame.replaceWith(area);
-} else {
-  document.querySelector('.glass-card').insertAdjacentElement('afterend', area);
-}
+      infoCard.replaceWith(area);
+    } else if (existGame) {
+      existGame.replaceWith(area);
+    } else {
+      document.querySelector('.glass-card').insertAdjacentElement('afterend', area);
+    }
 
     /* State awal reel — semua random */
     for (let i = 1; i <= 9; i++) {
       buildReel(
         document.getElementById('reel' + i),
-        rand(EMOJIS), rand(EMOJIS), rand(EMOJIS)
+        rand(EMOJIS)
       );
     }
   }
@@ -186,31 +185,27 @@ const Slot3x3 = (() => {
     /*
      * ── 2. Bangun simbol untuk semua 9 reel ──
      *
-     * PAYLINE = baris TENGAH grid = reel index 3, 4, 5
-     * (sw4=reel4, sw5=reel5, sw6=reel6 → array index 3,4,5)
+     * PAYLINE = baris TENGAH grid = sw4, sw5, sw6
+     * → reel4, reel5, reel6 → array index 3, 4, 5
      *
-     * reelSymbols[i] = { top, mid, bot }
+     * reelSymbols[i] = simbol yang tampil saat stop
      */
-    const reelSymbols = Array.from({length: 9}, () => ({
-      top: rand(EMOJIS),
-      mid: rand(EMOJIS),
-      bot: rand(EMOJIS),
-    }));
+    const reelSymbols = Array.from({length: 9}, () => rand(EMOJIS));
 
     if (isWin) {
-      /* Paksa ketiga mid payline sama */
+      /* Paksa ketiga payline sama */
       const winSym = rand(EMOJIS);
-      reelSymbols[3].mid = winSym;
-      reelSymbols[4].mid = winSym;
-      reelSymbols[5].mid = winSym;
+      reelSymbols[3] = winSym;
+      reelSymbols[4] = winSym;
+      reelSymbols[5] = winSym;
     } else {
-      /* Paksa tidak semua sama — loop sampai pasti berbeda */
-      while (
-        reelSymbols[3].mid === reelSymbols[4].mid &&
-        reelSymbols[4].mid === reelSymbols[5].mid
-      ) {
-        reelSymbols[5].mid = rand(EMOJIS);
-      }
+      /* Paksa tidak semua sama — pastikan minimal 1 berbeda */
+      reelSymbols[3] = rand(EMOJIS);
+      reelSymbols[4] = rand(EMOJIS);
+      /* Pastikan reel6 beda dari reel4 dan reel5 */
+      do {
+        reelSymbols[5] = rand(EMOJIS);
+      } while (reelSymbols[5] === reelSymbols[3] && reelSymbols[5] === reelSymbols[4]);
     }
 
     /* ── 3. Jalankan animasi ── */
@@ -219,27 +214,28 @@ const Slot3x3 = (() => {
     const delays = [0, 200, 400];
 
     await Promise.all(
-      reelSymbols.map((s, i) => {
+      reelSymbols.map((sym, i) => {
         const reel = document.getElementById('reel' + (i + 1));
         const col  = i % 3;
-        return animateReel(reel, s.top, s.mid, s.bot, durs[col], delays[col]);
+        return animateReel(reel, sym, durs[col], delays[col]);
       })
     );
 
     if (window._gameFinished) return;
 
-    /* ── 4. READ-BACK dari DOM — baca simbol tengah payline ── */
+    /* ── 4. READ-BACK dari DOM — baca simbol payline ── */
     const paylineReels = [
-      document.getElementById('reel4'),   /* sw4 — kolom kiri  payline */
-      document.getElementById('reel5'),   /* sw5 — kolom tengah payline */
-      document.getElementById('reel6'),   /* sw6 — kolom kanan  payline */
+      document.getElementById('reel4'),
+      document.getElementById('reel5'),
+      document.getElementById('reel6'),
     ];
 
     const middleRow = paylineReels.map(r => getSymbolAtCenter(r));
 
-    /* DEBUG — bandingkan dengan yang terlihat di layar */
+    /* DEBUG */
     console.log('CENTER PAYLINE:', middleRow);
     console.log('isWin (planned):', isWin);
+    console.log('planned symbols [3,4,5]:', reelSymbols[3], reelSymbols[4], reelSymbols[5]);
 
     /* ── 5. Evaluasi dari DOM read-back ── */
     const actualWin =
@@ -247,7 +243,7 @@ const Slot3x3 = (() => {
       middleRow[0] === middleRow[1] &&
       middleRow[1] === middleRow[2];
 
-    /* Sanity check — planned vs actual harus sama */
+    /* Sanity check */
     if (actualWin !== isWin) {
       console.warn('⚠ Mismatch planned vs actual!', { planned: isWin, actual: actualWin, middleRow });
     }
