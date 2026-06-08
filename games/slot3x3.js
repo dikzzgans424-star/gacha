@@ -103,15 +103,32 @@ const Slot3x3 = (() => {
         <div class="slot-section-label">Slot 3 × 3</div>
         <div class="slot-grid-3x3">${windows}</div>
         <div class="payline-wrap">
-          <div class="payline-track">
-            <div class="payline-dot left"></div>
-            <div class="payline-dot center"></div>
-            <div class="payline-dot right"></div>
-          </div>
-        </div>
-        <button class="spin-game-btn" id="spinGameBtn" onclick="Slot3x3.spin()">
-          🎰 &nbsp;SPIN
-        </button>
+  <div class="payline-track">
+    <div class="payline-dot left"></div>
+    <div class="payline-dot center"></div>
+    <div class="payline-dot right"></div>
+  </div>
+</div>
+
+<div class="win-rule">
+  <div class="win-rule-title">
+    🎯 Cara Menang
+  </div>
+
+  <div class="win-rule-grid">
+    🍋 🍒 🍇<br>
+    🍉 🍉 🍉 ← MENANG<br>
+    🍎 🍌 🍑
+  </div>
+
+  <div class="win-rule-desc">
+    Menang jika 3 simbol pada BARIS TENGAH sama.
+  </div>
+</div>
+
+<button class="spin-game-btn" id="spinGameBtn" onclick="Slot3x3.spin()">
+  🎰 &nbsp;SPIN
+</button>
       </div>
     `;
   }
@@ -136,12 +153,13 @@ const Slot3x3 = (() => {
     const existGame = document.getElementById('gameArea');
 
     if (infoCard) {
-      infoCard.replaceWith(area);
-    } else if (existGame) {
-      existGame.replaceWith(area);
-    } else {
-      document.querySelector('.glass-card').insertAdjacentElement('afterend', area);
-    }
+  infoCard.parentNode.insertBefore(area, infoCard);
+  infoCard.remove();
+} else if (existGame) {
+  existGame.replaceWith(area);
+} else {
+  document.querySelector('.glass-card').insertAdjacentElement('afterend', area);
+}
 
     /* State awal reel — semua random */
     for (let i = 1; i <= 9; i++) {
