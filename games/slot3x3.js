@@ -1,40 +1,56 @@
 /* ══════════════════════════════════════
    GAME: SLOT 3×3
    Expose: Slot3x3.init(gacha, onResult)
+
+   WIN MECHANIC:
+   - Baris tengah = index 3,4,5 (row ke-2)
+   - Menang jika ketiga simbol baris tengah identik
+   - Simbol final ditentukan SEBELUM animasi
 ══════════════════════════════════════ */
 const Slot3x3 = (() => {
 
   const EMOJIS = ['🍇','🍉','🍋','🍌','🍎','🍑','🍒','🫐','🥥','🥑'];
+  const ITEM_H = 80;   /* tinggi 1 item — sinkron dengan CSS .slot-reel div */
+  const PAD    = 30;   /* item padding sebelum simbol final */
+
   let _gacha    = null;
   let _onResult = null;
 
   /* ── Helpers ── */
-  function randomEmoji() {
-    return EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+  function rand(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
   }
 
-  function fillReel(reel) {
-    let html = '';
-    for (let i = 0; i < 40; i++) html += `<div>${randomEmoji()}</div>`;
-    reel.innerHTML = html;
+  /*
+   * Bangun reel dengan simbol final di posisi PAD.
+   * translateY target = -((PAD - 1) * ITEM_H)
+   * → simbol PAD muncul di tengah window (row ke-2 dari 3)
+   */
+  function buildReel(reel, finalSymbol) {
+    const items = [];
+    for (let i = 0; i < PAD; i++) items.push(rand(EMOJIS));
+    items.push(finalSymbol);   /* index PAD → tengah */
+    items.push(rand(EMOJIS));
+    items.push(rand(EMOJIS));
+    reel.innerHTML = items.map(e => `<div>${e}</div>`).join('');
+    reel.style.transition = 'none';
+    reel.style.transform  = 'translateY(0px)';
   }
 
-  function animateReel(reel, duration) {
+  function animateReel(reel, finalSymbol, duration, delay) {
     return new Promise(resolve => {
-      fillReel(reel);
-      reel.style.transition = 'none';
-      reel.style.transform  = 'translateY(0px)';
+      buildReel(reel, finalSymbol);
       setTimeout(() => {
-        reel.style.transition = `transform ${duration}ms cubic-bezier(.1,.8,.2,1)`;
-        reel.style.transform  = 'translateY(-3240px)'; /* 90px × 36 items */
-      }, 20);
-      setTimeout(resolve, duration);
+        reel.style.transition = `transform ${duration}ms cubic-bezier(0.08, 0.82, 0.17, 1)`;
+        reel.style.transform  = `translateY(${-((PAD - 1) * ITEM_H)}px)`;
+        setTimeout(resolve, duration);
+      }, delay);
     });
   }
 
   /* ── Render HTML ── */
   function render() {
-    const reels = Array.from({length: 9}, (_, i) =>
+    const windows = Array.from({length: 9}, (_, i) =>
       `<div class="slot-window" id="sw${i+1}">
          <div class="slot-reel" id="reel${i+1}"></div>
        </div>`
@@ -43,7 +59,7 @@ const Slot3x3 = (() => {
     return `
       <div class="slot-card">
         <div class="slot-section-label">Slot 3 × 3</div>
-        <div class="slot-grid-3x3">${reels}</div>
+        <div class="slot-grid-3x3">${windows}</div>
         <div class="payline-wrap">
           <div class="payline-track">
             <div class="payline-dot left"></div>
@@ -70,39 +86,69 @@ const Slot3x3 = (() => {
     document.querySelector('.status-card').insertAdjacentElement('afterend', area);
 
     for (let i = 1; i <= 9; i++) {
-      fillReel(document.getElementById('reel' + i));
+      buildReel(document.getElementById('reel' + i), rand(EMOJIS));
     }
   }
 
   /* ── Spin ── */
   async function spin() {
-    /* Guard: tolak jika session sudah selesai */
     if (window._gameFinished) return;
 
     const btn = document.getElementById('spinGameBtn');
-    if (!btn || btn.disabled) return;   /* cegah double-call */
+    if (!btn || btn.disabled) return;
     btn.disabled = true;
-    window.setStatus('🎰 SPINNING...', true);
+    window.setStatus('🎰 Spinning...', true);
 
-    /* Stagger by column */
-    const colDur = [2400, 3000, 3600];
-    const dur    = [0,1,2,0,1,2,0,1,2].map(c => colDur[c]);
-    const reels  = Array.from({length: 9}, (_, i) => document.getElementById('reel' + (i + 1)));
-
-    await Promise.all(reels.map((r, i) => animateReel(r, dur[i])));
-
-    /* Cek ulang — kalau game area sudah di-remove saat animasi jalan, abaikan */
-    if (window._gameFinished) return;
-
+    /* Tentukan hasil SEBELUM animasi */
     const chance = _gacha.isPremium ? 35 : 27;
     const isWin  = Math.random() * 100 < chance;
 
+    /*
+     * 9 simbol final, row-major:
+     *   [0][1][2]  ← atas
+     *   [3][4][5]  ← tengah (PAYLINE)
+     *   [6][7][8]  ← bawah
+     */
+    const finals = Array.from({length: 9}, () => rand(EMOJIS));
+
     if (isWin) {
-      document.querySelectorAll('.slot-grid-3x3 .slot-window')
-        .forEach(w => w.classList.add('win-glow'));
+      const winSymbol = rand(EMOJIS);
+      finals[3] = finals[4] = finals[5] = winSymbol;
+    } else {
+      /* Pastikan baris tengah tidak semua sama */
+      while (finals[3] === finals[4] && finals[4] === finals[5]) {
+        finals[5] = rand(EMOJIS);
+      }
     }
 
-    /* Biarkan btn tetap disabled — onGameResult akan hapus DOM-nya */
+    /* Durasi & delay per kolom — premium lebih dramatis */
+    const base = _gacha.isPremium ? 1000 : 600;
+    const durs  = [base + 2000, base + 3000, base + 4200];
+    const delays = [0, 200, 400];
+
+    const promises = finals.map((symbol, i) => {
+      const reel = document.getElementById('reel' + (i + 1));
+      const col  = i % 3;
+      return animateReel(reel, symbol, durs[col], delays[col]);
+    });
+
+    await Promise.all(promises);
+
+    if (window._gameFinished) return;
+
+    if (isWin) {
+      [4, 5, 6].forEach(n =>
+        document.getElementById('sw' + n)?.classList.add('win-glow')
+      );
+      window.setStatus('🏆 JACKPOT!', true);
+    } else {
+      window.setStatus('💀 Belum beruntung...', false);
+    }
+
+    /* Jeda singkat sebelum result */
+    await new Promise(r => setTimeout(r, isWin ? 1200 : 700));
+
+    if (window._gameFinished) return;
     _onResult(isWin, _gacha.money);
   }
 
