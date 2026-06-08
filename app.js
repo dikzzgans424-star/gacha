@@ -144,11 +144,8 @@ function showGachaInfo(gacha) {
 function revealGame() {
   if (!currentGacha || _gameFinished) return;
 
-  const infoCard = document.getElementById('gachaInfoCard');
-  if (infoCard) { infoCard.classList.remove('show'); infoCard.classList.add('hide'); }
-
-  hideGame();
-
+  /* Jangan hide/remove info card di sini —
+     game module akan replaceWith langsung di posisi yang sama */
   const type       = currentGacha.type || 'slot3x3';
   const getGame    = GAMES[type] ?? GAMES['slot3x3'];
   const gameModule = getGame();
@@ -242,7 +239,8 @@ function showResultInline(isWin, money, saveOk = true) {
     </div>
   `;
 
-  document.querySelector('.status-card').insertAdjacentElement('afterend', area);
+  /* Selalu insert tepat setelah glass-card (posisi sama dengan info card & game) */
+  document.querySelector('.glass-card').insertAdjacentElement('afterend', area);
 }
 
 function closeResultInline() {
