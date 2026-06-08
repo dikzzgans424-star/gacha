@@ -434,6 +434,8 @@ body::after {
   font-weight: 600;
   color: var(--text-secondary);
   transition: color 0.3s;
+  white-space: pre-line;
+  line-height: 1.6;
 }
 
 /* ── Reel states ── */
@@ -799,4 +801,36 @@ body::after {
   40%      { transform: translateX(6px); }
   60%      { transform: translateX(-4px); }
   80%      { transform: translateX(4px); }
+}
+
+/* ===== WIN RULE ===== */
+
+.win-rule {
+  margin-top: 18px;
+  margin-bottom: 18px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-soft);
+  text-align: center;
+}
+
+.win-rule-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 10px;
+}
+
+.win-rule-grid {
+  font-size: 20px;
+  line-height: 1.8;
+  margin-bottom: 10px;
+}
+
+.win-rule-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
 }

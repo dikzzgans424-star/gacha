@@ -70,7 +70,7 @@ async function startSpin() {
 
   const btn = document.getElementById('spinBtn');
   btn.disabled = true;
-  setStatus('🔍 Mengecek ID...', true);
+  setStatus('Mengecek ID...', true);
 
   try {
     currentFile  = await getGachaData();
@@ -194,9 +194,26 @@ async function onGameResult(isWin, money) {
   }
 
   setStatus(
-    isWin
-      ? '🏆 WIN! ' + (saveOk ? '· Tersimpan ✓' : '· ⚠ Gagal simpan')
-      : '💀 LOSE '  + (saveOk ? '· Tersimpan ✓' : '· ⚠ Gagal simpan')
+    if (isWin) {
+  setStatus(`🎉 SELAMAT!
+
+💰 Hadiah:
+Rp ${Number(money).toLocaleString('id-ID')}
+
+📌 Cara Klaim:
+Ketik .cekgacha pada bot WhatsApp
+
+🆔 ID:
+${currentGacha.idgacha}
+
+${saveOk ? '✓ Hasil tersimpan' : '⚠ Gagal menyimpan'}`);
+} else {
+  setStatus(`💀 LOSE
+
+Lebih beruntung di lain kesempatan.
+
+${saveOk ? '✓ Hasil tersimpan' : '⚠ Gagal menyimpan'}`);
+}
   );
 
   hideGame();
