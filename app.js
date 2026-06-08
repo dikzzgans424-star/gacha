@@ -135,6 +135,8 @@ function showGachaInfo(gacha) {
 
   infoCard.classList.remove('hide');
   requestAnimationFrame(() => infoCard.classList.add('show'));
+
+  /* Hapus gameArea lama kalau ada */
   hideGame();
 }
 
@@ -144,11 +146,14 @@ function showGachaInfo(gacha) {
 function revealGame() {
   if (!currentGacha || _gameFinished) return;
 
-  /* Jangan hide/remove info card di sini —
-     game module akan replaceWith langsung di posisi yang sama */
   const type       = currentGacha.type || 'slot3x3';
   const getGame    = GAMES[type] ?? GAMES['slot3x3'];
   const gameModule = getGame();
+
+  /*
+   * Init game — modul akan replaceWith info card di posisi yang sama.
+   * Info card TIDAK dihapus di sini; gameModule.init() yang handle replace.
+   */
   gameModule.init(currentGacha, onGameResult);
 }
 
@@ -193,35 +198,30 @@ async function onGameResult(isWin, money) {
     console.error('Save error:', err);
   }
 
-  setStatus(
-    if (isWin) {
-  setStatus(`🎉 SELAMAT!
-
-💰 Hadiah:
-Rp ${Number(money).toLocaleString('id-ID')}
-
-📌 Cara Klaim:
-Ketik .cekgacha pada bot WhatsApp
-
-🆔 ID:
-${currentGacha.idgacha}
-
-${saveOk ? '✓ Hasil tersimpan' : '⚠ Gagal menyimpan'}`);
-} else {
-  setStatus(`💀 LOSE
-
-Lebih beruntung di lain kesempatan.
-
-${saveOk ? '✓ Hasil tersimpan' : '⚠ Gagal menyimpan'}`);
-}
-  );
+  /* Update status card */
+  if (isWin) {
+    setStatus(
+      `🎉 SELAMAT! Kamu menang!\n` +
+      `💰 Hadiah: Rp ${Number(money).toLocaleString('id-ID')}\n` +
+      `📌 Ketik .cekgacha di bot WhatsApp untuk klaim.\n` +
+      `🆔 ID: ${currentGacha.idgacha}\n` +
+      `${saveOk ? '✓ Hasil tersimpan' : '⚠ Gagal menyimpan'}`,
+      true
+    );
+  } else {
+    setStatus(
+      `💀 Belum beruntung kali ini...\n` +
+      `${saveOk ? '✓ Hasil tersimpan' : '⚠ Gagal menyimpan'}`,
+      false
+    );
+  }
 
   hideGame();
   showResultInline(isWin, money, saveOk);
 }
 
 /* ────────────────────────────────────────
-   RESULT — inline
+   RESULT — inline (enhanced)
 ──────────────────────────────────────── */
 function showResultInline(isWin, money, saveOk = true) {
   const area = document.createElement('div');
@@ -243,6 +243,37 @@ function showResultInline(isWin, money, saveOk = true) {
     ? `<div class="result-save-ok">✓ Hasil tersimpan</div>`
     : `<div class="result-save-err">⚠ Gagal menyimpan — hubungi admin dengan ID: ${currentGacha?.idgacha || '-'}</div>`;
 
+  /* Claim info hanya tampil saat WIN */
+  const claimInfo = isWin ? `
+    <div class="result-claim-box">
+      <div class="result-claim-title">📌 Cara Klaim Hadiah</div>
+      <div class="result-claim-step">
+        <span class="result-claim-num">1</span>
+        <span>Buka bot WhatsApp Miwa</span>
+      </div>
+      <div class="result-claim-step">
+        <span class="result-claim-num">2</span>
+        <span>Ketik perintah <code>.cekgacha</code></span>
+      </div>
+      <div class="result-claim-step">
+        <span class="result-claim-num">3</span>
+        <span>Hadiah akan otomatis diproses</span>
+      </div>
+      <div class="result-claim-id">
+        <span class="result-claim-id-label">ID GACHA</span>
+        <span class="result-claim-id-value">${currentGacha?.idgacha || '-'}</span>
+      </div>
+    </div>
+  ` : '';
+
+  /* Extra motivasi saat lose */
+  const loseExtra = !isWin ? `
+    <div class="result-lose-extra">
+      <div class="result-lose-icon">🎲</div>
+      <div class="result-lose-msg">Jangan menyerah! Coba lagi dengan ID baru.</div>
+    </div>
+  ` : '';
+
   area.innerHTML = `
     <div class="result-panel ${panelClass}">
       <span class="result-emoji">${emoji}</span>
@@ -250,13 +281,15 @@ function showResultInline(isWin, money, saveOk = true) {
       <div class="result-title">${title}</div>
       <div class="result-money ${moneyClass}">${moneyPrefix} Rp ${Number(money).toLocaleString('id-ID')}</div>
       <div class="result-desc">${desc}</div>
+      ${claimInfo}
+      ${loseExtra}
       <div class="result-meta">${saveNote}</div>
       <div class="result-divider"></div>
       <button class="close-btn" onclick="closeResultInline()">Tutup</button>
     </div>
   `;
 
-  /* Selalu insert tepat setelah glass-card (posisi sama dengan info card & game) */
+  /* Selalu insert tepat setelah glass-card */
   document.querySelector('.glass-card').insertAdjacentElement('afterend', area);
 }
 

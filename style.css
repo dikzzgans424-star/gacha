@@ -834,3 +834,110 @@ body::after {
   font-size: 12px;
   color: var(--text-secondary);
 }
+/* ── Result Claim Box (WIN) ── */
+.result-claim-box {
+  margin-top: 20px;
+  background: rgba(76,175,130,0.06);
+  border: 1px solid rgba(76,175,130,0.18);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  text-align: left;
+}
+
+.result-claim-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--win-green);
+  margin-bottom: 12px;
+}
+
+.result-claim-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 9px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.result-claim-step code {
+  font-family: 'Courier New', monospace;
+  background: rgba(76,175,130,0.12);
+  color: var(--win-green);
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.result-claim-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(76,175,130,0.15);
+  border: 1px solid rgba(76,175,130,0.25);
+  color: var(--win-green);
+  font-size: 10px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.result-claim-id {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(76,175,130,0.12);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.result-claim-id-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.result-claim-id-value {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 1px;
+  background: rgba(212,175,90,0.08);
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(212,175,90,0.15);
+}
+
+/* ── Result Lose Extra ── */
+.result-lose-extra {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(207,92,92,0.06);
+  border: 1px solid rgba(207,92,92,0.12);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  text-align: left;
+}
+
+.result-lose-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.result-lose-msg {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
