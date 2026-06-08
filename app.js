@@ -3,26 +3,22 @@
 ══════════════════════════════════════ */
 
 /* ── DOM refs ── */
-const statusText    = document.getElementById('statusText');
-const statusDot     = document.getElementById('statusDot');
-const resultOverlay = document.getElementById('resultOverlay');
-const resultEmoji   = document.getElementById('resultEmoji');
-const resultTitle   = document.getElementById('resultTitle');
-const resultDesc    = document.getElementById('resultDesc');
+const statusText = document.getElementById('statusText');
+const statusDot  = document.getElementById('statusDot');
 
 /* ── State ── */
 let currentFile   = null;
 let currentGacha  = null;
-let _gameFinished = false; // session lock — reset hanya oleh refresh halaman
+let _gameFinished = false;
 
-/* ── Game registry — daftarkan game baru di sini ── */
+/* ── Game registry ── */
 const GAMES = {
   slot3x3:  () => Slot3x3,
   roulette: () => Roulette,
 };
 
 /* ────────────────────────────────────────
-   HELPERS (global agar bisa dipanggil game files)
+   HELPERS
 ──────────────────────────────────────── */
 function setStatus(msg, active = false) {
   statusText.textContent = msg;
@@ -40,7 +36,6 @@ function shakeInput() {
    API
 ──────────────────────────────────────── */
 async function getGachaData() {
-  /* Cache-busting agar browser tidak pakai response lama */
   const res = await fetch('/.netlify/functions/gacha?_=' + Date.now());
   if (!res.ok) throw new Error('Gagal mengambil data dari server');
   const json = await res.json();
@@ -62,11 +57,8 @@ async function saveGachaData(data, sha) {
 
 /* ────────────────────────────────────────
    STEP 1 — CEK ID
-   • Re-fetch fresh setiap kali dipanggil
-   • Blok jika session sudah selesai
 ──────────────────────────────────────── */
 async function startSpin() {
-  /* Kalau session ini sudah ada result, tolak langsung */
   if (_gameFinished) {
     setStatus('⛔ Sesi selesai — refresh halaman untuk ID baru.');
     shakeInput();
@@ -74,37 +66,21 @@ async function startSpin() {
   }
 
   const id = document.getElementById('gachaId').value.trim().toUpperCase();
-
-  if (!id) {
-    setStatus('⚠ Masukkan ID Gacha terlebih dahulu.');
-    shakeInput();
-    return;
-  }
+  if (!id) { setStatus('⚠ Masukkan ID Gacha terlebih dahulu.'); shakeInput(); return; }
 
   const btn = document.getElementById('spinBtn');
   btn.disabled = true;
   setStatus('🔍 Mengecek ID...', true);
 
   try {
-    /* Fresh fetch setiap kali — deteksi status terbaru dari server */
     currentFile  = await getGachaData();
     currentGacha = currentFile.data.gacha.find(x => x.idgacha.toUpperCase() === id);
 
-    if (!currentGacha) {
-      setStatus('❌ ID Tidak Ditemukan');
-      btn.disabled = false;
-      return;
-    }
-
-    if (currentGacha.status) {
-      setStatus('❌ ID Sudah Diproses');
-      btn.disabled = false;
-      return;
-    }
+    if (!currentGacha) { setStatus('❌ ID Tidak Ditemukan'); btn.disabled = false; return; }
+    if (currentGacha.status) { setStatus('❌ ID Sudah Diproses'); btn.disabled = false; return; }
 
     showGachaInfo(currentGacha);
     btn.disabled = false;
-
   } catch (err) {
     console.error(err);
     setStatus('❌ ERROR: ' + err.message);
@@ -116,11 +92,7 @@ async function startSpin() {
    STEP 2 — INFO CARD
 ──────────────────────────────────────── */
 function showGachaInfo(gacha) {
-  const typeLabel = {
-    slot3x3:  '🎰 Slot 3×3',
-    roulette: '🎡 Roulette',
-  }[gacha.type] || '🎰 Slot';
-
+  const typeLabel = { slot3x3: '🎰 Slot 3×3', roulette: '🎡 Roulette' }[gacha.type] || '🎰 Slot';
   const badge = gacha.isPremium
     ? `<span class="badge-premium">★ PREMIUM</span>`
     : `<span class="badge-regular">REGULAR</span>`;
@@ -163,29 +135,23 @@ function showGachaInfo(gacha) {
 
   infoCard.classList.remove('hide');
   requestAnimationFrame(() => infoCard.classList.add('show'));
-
   hideGame();
 }
 
 /* ────────────────────────────────────────
    STEP 3 — LOAD GAME
-   • Blok jika session sudah selesai
 ──────────────────────────────────────── */
 function revealGame() {
   if (!currentGacha || _gameFinished) return;
 
   const infoCard = document.getElementById('gachaInfoCard');
-  if (infoCard) {
-    infoCard.classList.remove('show');
-    infoCard.classList.add('hide');
-  }
+  if (infoCard) { infoCard.classList.remove('show'); infoCard.classList.add('hide'); }
 
   hideGame();
 
   const type       = currentGacha.type || 'slot3x3';
   const getGame    = GAMES[type] ?? GAMES['slot3x3'];
   const gameModule = getGame();
-
   gameModule.init(currentGacha, onGameResult);
 }
 
@@ -195,34 +161,27 @@ function hideGame() {
 }
 
 /* ────────────────────────────────────────
-   RESULT CALLBACK (dipanggil dari game file)
-   • Set _gameFinished = true → semua entry point terblokir
-   • Re-fetch fresh sebelum save untuk dapat SHA terbaru
+   RESULT CALLBACK
 ──────────────────────────────────────── */
 async function onGameResult(isWin, money) {
-  /* Tandai session selesai — blok semua aksi lebih lanjut */
   _gameFinished = true;
 
   currentGacha.status     = true;
   currentGacha.result     = isWin ? 'win' : 'lose';
   currentGacha.finishedAt = Date.now();
 
-  /* Lock UI */
-  const spinGameBtn = document.getElementById('spinGameBtn');
-  if (spinGameBtn) spinGameBtn.disabled = true;
-  const spinBtn = document.getElementById('spinBtn');
-  if (spinBtn) { spinBtn.disabled = true; spinBtn.textContent = '🔒'; }
+  /* Lock input */
+  const spinBtn    = document.getElementById('spinBtn');
   const gachaInput = document.getElementById('gachaId');
+  if (spinBtn)    { spinBtn.disabled = true; spinBtn.textContent = '🔒'; }
   if (gachaInput) gachaInput.disabled = true;
 
+  /* Simpan hasil */
+  setStatus('💾 Menyimpan hasil...', true);
+
+  let saveOk = false;
   try {
-    /*
-     * Re-fetch fresh data sebelum save.
-     * Ini penting agar SHA yang kita kirim adalah SHA terbaru dari server,
-     * bukan SHA dari fetch pertama (yang bisa sudah stale kalau ada update lain).
-     */
     const freshFile = await getGachaData();
-    /* Terapkan perubahan ke data fresh */
     const idx = freshFile.data.gacha.findIndex(
       x => x.idgacha.toUpperCase() === currentGacha.idgacha.toUpperCase()
     );
@@ -232,43 +191,65 @@ async function onGameResult(isWin, money) {
       freshFile.data.gacha[idx].finishedAt = currentGacha.finishedAt;
     }
     await saveGachaData(freshFile.data, freshFile.sha);
+    saveOk = true;
   } catch (err) {
     console.error('Save error:', err);
   }
 
-  setStatus(isWin ? '🏆 WIN!' : '💀 LOSE');
+  setStatus(
+    isWin
+      ? '🏆 WIN! ' + (saveOk ? '· Tersimpan ✓' : '· ⚠ Gagal simpan')
+      : '💀 LOSE '  + (saveOk ? '· Tersimpan ✓' : '· ⚠ Gagal simpan')
+  );
 
-  /* Hapus game area dari DOM — cegah spin ulang via tombol yang masih ada */
   hideGame();
-
-  showResult(isWin, money);
+  showResultInline(isWin, money, saveOk);
 }
 
 /* ────────────────────────────────────────
-   RESULT OVERLAY
+   RESULT — inline
 ──────────────────────────────────────── */
-function showResult(isWin, money) {
-  const badge = document.getElementById('resultBadge');
+function showResultInline(isWin, money, saveOk = true) {
+  const area = document.createElement('div');
+  area.id        = 'gameArea';
+  area.className = 'game-area';
 
-  if (isWin) {
-    resultEmoji.textContent = '🎉';
-    resultTitle.textContent = 'Jackpot!';
-    resultDesc.textContent  = `+ Rp ${Number(money).toLocaleString('id-ID')}`;
-    if (badge) { badge.className = 'result-badge win'; badge.textContent = '● WIN'; }
-  } else {
-    resultEmoji.textContent = '💀';
-    resultTitle.textContent = 'Belum Beruntung';
-    resultDesc.textContent  = `- Rp ${Number(money).toLocaleString('id-ID')}`;
-    if (badge) { badge.className = 'result-badge lose'; badge.textContent = '● LOSE'; }
-  }
+  const panelClass  = isWin ? 'win-panel'  : 'lose-panel';
+  const badgeClass  = isWin ? 'win'        : 'lose';
+  const badgeLabel  = isWin ? '● WIN'      : '● LOSE';
+  const emoji       = isWin ? '🎉'         : '💀';
+  const title       = isWin ? 'Jackpot!'   : 'Belum Beruntung';
+  const moneyClass  = isWin ? 'win'        : 'lose';
+  const moneyPrefix = isWin ? '+'          : '−';
+  const desc        = isWin
+    ? 'Selamat! Hadiah akan segera diproses.'
+    : 'Lebih beruntung di lain kesempatan.';
 
-  resultOverlay.style.display = 'flex';
+  const saveNote = saveOk
+    ? `<div class="result-save-ok">✓ Hasil tersimpan</div>`
+    : `<div class="result-save-err">⚠ Gagal menyimpan — hubungi admin dengan ID: ${currentGacha?.idgacha || '-'}</div>`;
+
+  area.innerHTML = `
+    <div class="result-panel ${panelClass}">
+      <span class="result-emoji">${emoji}</span>
+      <div class="result-badge ${badgeClass}">${badgeLabel}</div>
+      <div class="result-title">${title}</div>
+      <div class="result-money ${moneyClass}">${moneyPrefix} Rp ${Number(money).toLocaleString('id-ID')}</div>
+      <div class="result-desc">${desc}</div>
+      <div class="result-meta">${saveNote}</div>
+      <div class="result-divider"></div>
+      <button class="close-btn" onclick="closeResultInline()">Tutup</button>
+    </div>
+  `;
+
+  document.querySelector('.status-card').insertAdjacentElement('afterend', area);
 }
 
-function closeResult() {
-  resultOverlay.style.display = 'none';
+function closeResultInline() {
+  hideGame();
 }
 
 /* ── Events ── */
-resultOverlay.addEventListener('click', e => { if (e.target === resultOverlay) closeResult(); });
-document.getElementById('gachaId').addEventListener('keydown', e => { if (e.key === 'Enter') startSpin(); });
+document.getElementById('gachaId').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startSpin();
+});
