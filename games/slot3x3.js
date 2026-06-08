@@ -2,16 +2,33 @@
    GAME: SLOT 3×3
    Expose: Slot3x3.init(gacha, onResult)
 
-   WIN MECHANIC:
-   - Baris tengah = index 3,4,5 (row ke-2)
-   - Menang jika ketiga simbol baris tengah identik
-   - Simbol final ditentukan SEBELUM animasi
+   GRID LAYOUT (row-major):
+     sw1  sw2  sw3   ← baris atas
+     sw4  sw5  sw6   ← baris TENGAH = PAYLINE
+     sw7  sw8  sw9   ← baris bawah
+
+   WIN: simbol tengah sw4 === sw5 === sw6
+
+   MEKANISME:
+   1. Tentukan apakah menang (chance%)
+   2. Bangun simbol untuk semua 9 reel — mid sw4/5/6 dikontrol
+   3. Jalankan animasi
+   4. Setelah animasi berhenti, READ-BACK simbol tengah
+      dari DOM secara langsung (getSymbolAtCenter)
+   5. Cek menang dari DOM read-back, bukan data internal
+   6. console.log CENTER PAYLINE untuk debug
 ══════════════════════════════════════ */
 const Slot3x3 = (() => {
 
   const EMOJIS = ['🍇','🍉','🍋','🍌','🍎','🍑','🍒','🫐','🥥','🥑'];
-  const ITEM_H = 80;   /* tinggi 1 item — sinkron dengan CSS .slot-reel div */
-  const PAD    = 30;   /* item padding sebelum simbol final */
+
+  /*
+   * ITEM_H: tinggi satu simbol dalam px.
+   * HARUS sinkron dengan CSS: .slot-reel div { height: Xpx }
+   * Window height = ITEM_H × 3 (3 baris terlihat)
+   */
+  const ITEM_H = 72;
+  const PAD    = 28;   /* item random sebelum 3 simbol target */
 
   let _gacha    = null;
   let _onResult = null;
@@ -22,27 +39,52 @@ const Slot3x3 = (() => {
   }
 
   /*
-   * Bangun reel dengan simbol final di posisi PAD.
-   * translateY target = -((PAD - 1) * ITEM_H)
-   * → simbol PAD muncul di tengah window (row ke-2 dari 3)
+   * buildReel — isi reel dengan:
+   *   [PAD item random] [top] [mid] [bot] [1 buffer]
+   *
+   * Stop translateY = -(PAD * ITEM_H)
+   * → item[PAD]   berada di pixel 0..ITEM_H   = baris atas window
+   * → item[PAD+1] berada di pixel ITEM_H..2×ITEM_H = baris TENGAH ✓
+   * → item[PAD+2] berada di pixel 2×ITEM_H..3×ITEM_H = baris bawah
    */
-  function buildReel(reel, finalSymbol) {
+  function buildReel(reel, top, mid, bot) {
     const items = [];
     for (let i = 0; i < PAD; i++) items.push(rand(EMOJIS));
-    items.push(finalSymbol);   /* index PAD → tengah */
-    items.push(rand(EMOJIS));
-    items.push(rand(EMOJIS));
+    items.push(top);           /* index PAD   → baris atas   */
+    items.push(mid);           /* index PAD+1 → baris TENGAH */
+    items.push(bot);           /* index PAD+2 → baris bawah  */
+    items.push(rand(EMOJIS));  /* buffer      */
+
     reel.innerHTML = items.map(e => `<div>${e}</div>`).join('');
     reel.style.transition = 'none';
     reel.style.transform  = 'translateY(0px)';
   }
 
-  function animateReel(reel, finalSymbol, duration, delay) {
+  /*
+   * getSymbolAtCenter — baca simbol yang BENAR-BENAR terlihat
+   * di baris tengah window setelah animasi berhenti.
+   *
+   * Cara: ambil computed translateY, hitung item index yang
+   * ada di tengah window (offset ITEM_H dari top).
+   */
+  function getSymbolAtCenter(reel) {
+    const style     = window.getComputedStyle(reel);
+    const matrix    = new DOMMatrix(style.transform);
+    const translateY = matrix.m42;                       /* nilai translateY aktual */
+    const scrolled   = Math.abs(translateY);             /* px yang sudah discroll  */
+    const centerIdx  = Math.round((scrolled + ITEM_H) / ITEM_H); /* item di tengah  */
+    const items      = reel.querySelectorAll('div');
+    return items[centerIdx]?.textContent?.trim() ?? '?';
+  }
+
+  /* ── Animasi ── */
+  function animateReel(reel, top, mid, bot, duration, delay) {
     return new Promise(resolve => {
-      buildReel(reel, finalSymbol);
+      buildReel(reel, top, mid, bot);
+      const targetY = -(PAD * ITEM_H);
       setTimeout(() => {
         reel.style.transition = `transform ${duration}ms cubic-bezier(0.08, 0.82, 0.17, 1)`;
-        reel.style.transform  = `translateY(${-((PAD - 1) * ITEM_H)}px)`;
+        reel.style.transform  = `translateY(${targetY}px)`;
         setTimeout(resolve, duration);
       }, delay);
     });
@@ -51,8 +93,8 @@ const Slot3x3 = (() => {
   /* ── Render HTML ── */
   function render() {
     const windows = Array.from({length: 9}, (_, i) =>
-      `<div class="slot-window" id="sw${i+1}">
-         <div class="slot-reel" id="reel${i+1}"></div>
+      `<div class="slot-window" id="sw${i + 1}">
+         <div class="slot-reel"  id="reel${i + 1}"></div>
        </div>`
     ).join('');
 
@@ -83,10 +125,30 @@ const Slot3x3 = (() => {
     area.id        = 'gameArea';
     area.className = 'game-area slide-in';
     area.innerHTML = render();
-    document.querySelector('.status-card').insertAdjacentElement('afterend', area);
 
+    /*
+     * Cari anchor untuk replace — prioritas:
+     * 1. Info card masih di DOM → replace langsung di posisinya
+     * 2. Game area lama masih ada → replace
+     * 3. Fallback → insert setelah glass-card
+     */
+    const infoCard  = document.getElementById('gachaInfoCard');
+    const existGame = document.getElementById('gameArea');
+
+    if (infoCard) {
+      infoCard.replaceWith(area);
+    } else if (existGame) {
+      existGame.replaceWith(area);
+    } else {
+      document.querySelector('.glass-card').insertAdjacentElement('afterend', area);
+    }
+
+    /* State awal reel — semua random */
     for (let i = 1; i <= 9; i++) {
-      buildReel(document.getElementById('reel' + i), rand(EMOJIS));
+      buildReel(
+        document.getElementById('reel' + i),
+        rand(EMOJIS), rand(EMOJIS), rand(EMOJIS)
+      );
     }
   }
 
@@ -99,44 +161,81 @@ const Slot3x3 = (() => {
     btn.disabled = true;
     window.setStatus('🎰 Spinning...', true);
 
-    /* Tentukan hasil SEBELUM animasi */
+    /* ── 1. Tentukan hasil ── */
     const chance = _gacha.isPremium ? 35 : 27;
     const isWin  = Math.random() * 100 < chance;
 
     /*
-     * 9 simbol final, row-major:
-     *   [0][1][2]  ← atas
-     *   [3][4][5]  ← tengah (PAYLINE)
-     *   [6][7][8]  ← bawah
+     * ── 2. Bangun simbol untuk semua 9 reel ──
+     *
+     * PAYLINE = baris TENGAH grid = reel index 3, 4, 5
+     * (sw4=reel4, sw5=reel5, sw6=reel6 → array index 3,4,5)
+     *
+     * reelSymbols[i] = { top, mid, bot }
      */
-    const finals = Array.from({length: 9}, () => rand(EMOJIS));
+    const reelSymbols = Array.from({length: 9}, () => ({
+      top: rand(EMOJIS),
+      mid: rand(EMOJIS),
+      bot: rand(EMOJIS),
+    }));
 
     if (isWin) {
-      const winSymbol = rand(EMOJIS);
-      finals[3] = finals[4] = finals[5] = winSymbol;
+      /* Paksa ketiga mid payline sama */
+      const winSym = rand(EMOJIS);
+      reelSymbols[3].mid = winSym;
+      reelSymbols[4].mid = winSym;
+      reelSymbols[5].mid = winSym;
     } else {
-      /* Pastikan baris tengah tidak semua sama */
-      while (finals[3] === finals[4] && finals[4] === finals[5]) {
-        finals[5] = rand(EMOJIS);
+      /* Paksa tidak semua sama — loop sampai pasti berbeda */
+      while (
+        reelSymbols[3].mid === reelSymbols[4].mid &&
+        reelSymbols[4].mid === reelSymbols[5].mid
+      ) {
+        reelSymbols[5].mid = rand(EMOJIS);
       }
     }
 
-    /* Durasi & delay per kolom — premium lebih dramatis */
-    const base = _gacha.isPremium ? 1000 : 600;
-    const durs  = [base + 2000, base + 3000, base + 4200];
+    /* ── 3. Jalankan animasi ── */
+    const base   = _gacha.isPremium ? 1000 : 600;
+    const durs   = [base + 2000, base + 3000, base + 4200];
     const delays = [0, 200, 400];
 
-    const promises = finals.map((symbol, i) => {
-      const reel = document.getElementById('reel' + (i + 1));
-      const col  = i % 3;
-      return animateReel(reel, symbol, durs[col], delays[col]);
-    });
-
-    await Promise.all(promises);
+    await Promise.all(
+      reelSymbols.map((s, i) => {
+        const reel = document.getElementById('reel' + (i + 1));
+        const col  = i % 3;
+        return animateReel(reel, s.top, s.mid, s.bot, durs[col], delays[col]);
+      })
+    );
 
     if (window._gameFinished) return;
 
-    if (isWin) {
+    /* ── 4. READ-BACK dari DOM — baca simbol tengah payline ── */
+    const paylineReels = [
+      document.getElementById('reel4'),   /* sw4 — kolom kiri  payline */
+      document.getElementById('reel5'),   /* sw5 — kolom tengah payline */
+      document.getElementById('reel6'),   /* sw6 — kolom kanan  payline */
+    ];
+
+    const middleRow = paylineReels.map(r => getSymbolAtCenter(r));
+
+    /* DEBUG — bandingkan dengan yang terlihat di layar */
+    console.log('CENTER PAYLINE:', middleRow);
+    console.log('isWin (planned):', isWin);
+
+    /* ── 5. Evaluasi dari DOM read-back ── */
+    const actualWin =
+      middleRow[0] !== '?' &&
+      middleRow[0] === middleRow[1] &&
+      middleRow[1] === middleRow[2];
+
+    /* Sanity check — planned vs actual harus sama */
+    if (actualWin !== isWin) {
+      console.warn('⚠ Mismatch planned vs actual!', { planned: isWin, actual: actualWin, middleRow });
+    }
+
+    /* ── 6. Visual feedback ── */
+    if (actualWin) {
       [4, 5, 6].forEach(n =>
         document.getElementById('sw' + n)?.classList.add('win-glow')
       );
@@ -145,11 +244,10 @@ const Slot3x3 = (() => {
       window.setStatus('💀 Belum beruntung...', false);
     }
 
-    /* Jeda singkat sebelum result */
-    await new Promise(r => setTimeout(r, isWin ? 1200 : 700));
+    await new Promise(r => setTimeout(r, actualWin ? 1200 : 700));
 
     if (window._gameFinished) return;
-    _onResult(isWin, _gacha.money);
+    _onResult(actualWin, _gacha.money);
   }
 
   return { init, spin };
