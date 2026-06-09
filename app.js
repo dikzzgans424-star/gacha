@@ -15,6 +15,8 @@ let _gameFinished = false;
 const GAMES = {
   slot3x3:  () => Slot3x3,
   roulette: () => Roulette,
+  coinflip: () => CoinFlip,
+  spaceman: () => Spaceman,
 };
 
 /* ────────────────────────────────────────
@@ -92,7 +94,12 @@ async function startSpin() {
    STEP 2 — INFO CARD
 ──────────────────────────────────────── */
 function showGachaInfo(gacha) {
-  const typeLabel = { slot3x3: '🎰 Slot 3×3', roulette: '🎡 Roulette' }[gacha.type] || '🎰 Slot';
+  const typeLabel = {
+  slot3x3:  '🎰 Slot 3×3',
+  roulette: '🎡 Roulette',
+  coinflip: '🪙 Coin Flip',
+  spaceman: '🚀 Spaceman',
+}[gacha.type] || '🎰 Slot';
   const badge = gacha.isPremium
     ? `<span class="badge-premium">★ PREMIUM</span>`
     : `<span class="badge-regular">REGULAR</span>`;

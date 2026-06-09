@@ -1063,3 +1063,285 @@ body::after {
 @media (max-width: 420px) {
   .roulette-canvas-wrap { max-width: 280px; }
 }
+
+/* ══════════════════════════════════════
+   COIN FLIP STYLES
+══════════════════════════════════════ */
+
+.coin-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+  padding: 22px 22px 28px;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.coin-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212,175,90,0.3), transparent);
+}
+
+/* Canvas wrap + shadow */
+.coin-canvas-wrap {
+  position: relative;
+  width: 260px;
+  height: 260px;
+  margin: 0 auto 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#coinCanvas {
+  display: block;
+  position: relative;
+  z-index: 2;
+}
+
+.coin-shadow {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 180px;
+  height: 32px;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.7) 0%, transparent 70%);
+  border-radius: 50%;
+  transform-origin: center center;
+  z-index: 1;
+  pointer-events: none;
+  transition: none;
+}
+
+/* HUD text under coin */
+.coin-hud {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  min-height: 20px;
+  transition: color 0.2s;
+}
+
+.coin-hud.chosen   { font-size: 14px; }
+.coin-hud.hud-heads { color: var(--gold); }
+.coin-hud.hud-tails { color: var(--text-secondary); }
+.coin-hud.spinning  { color: var(--gold); animation: rch-pulse 0.6s infinite alternate; }
+.coin-hud.result    { font-size: 16px; font-family: 'DM Serif Display', serif; }
+.coin-hud.hud-win   { color: var(--win-green); }
+.coin-hud.hud-lose  { color: var(--lose-red); }
+
+/* Bet buttons — heads/tails reuse roulette classes + overrides */
+.coin-bet-section { margin-bottom: 4px; }
+
+.bet-btn.bet-heads.selected {
+  background: rgba(212,175,90,0.14);
+  border-color: rgba(212,175,90,0.5);
+  color: var(--gold);
+  box-shadow: 0 0 16px rgba(212,175,90,0.12);
+}
+
+.bet-btn.bet-tails.selected {
+  background: rgba(160,82,45,0.14);
+  border-color: rgba(160,82,45,0.45);
+  color: #cd853f;
+  box-shadow: 0 0 14px rgba(160,82,45,0.1);
+}
+
+@media (max-width: 420px) {
+  .coin-canvas-wrap { width: 220px; height: 220px; }
+}
+
+/* ══════════════════════════════════════
+   SPACEMAN — Crash Game
+══════════════════════════════════════ */
+
+.spaceman-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+  padding: 22px 22px 28px;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.spaceman-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212,175,90,0.3), transparent);
+}
+
+/* ── Canvas wrap ── */
+.spaceman-canvas-wrap {
+  position: relative;
+  width: 100%;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 18px;
+  background: #07070f;
+  border: 1px solid var(--border-mid);
+}
+
+#spacemanCanvas {
+  display: block;
+  width: 100%;
+  height: 240px;
+}
+
+/* ── Multiplier HUD overlay ── */
+.spaceman-multiplier-hud {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.sm-multi-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+  margin-bottom: 2px;
+}
+
+.sm-multi-value {
+  font-family: 'DM Serif Display', serif;
+  font-size: 36px;
+  font-weight: 400;
+  color: var(--gold-light);
+  line-height: 1;
+  text-shadow: 0 0 20px rgba(212,175,90,0.5);
+  transition: color 0.2s, text-shadow 0.2s;
+  letter-spacing: 1px;
+}
+
+.sm-multi-value.danger {
+  color: #ff8c40;
+  text-shadow: 0 0 24px rgba(255,100,20,0.6);
+  animation: multiBlink 0.5s infinite alternate;
+}
+
+.sm-multi-value.crash {
+  color: var(--lose-red);
+  text-shadow: 0 0 24px rgba(207,92,92,0.7);
+  font-size: 28px;
+}
+
+@keyframes multiBlink {
+  from { opacity: 0.85; }
+  to   { opacity: 1; }
+}
+
+.spaceman-multiplier-hud.win  .sm-multi-value { color: var(--win-green); text-shadow: 0 0 20px rgba(76,175,130,0.6); }
+.spaceman-multiplier-hud.lose .sm-multi-value { color: var(--lose-red);  text-shadow: 0 0 20px rgba(207,92,92,0.6); }
+
+/* ── Cashout Button ── */
+.spaceman-cashout-btn {
+  width: 100%;
+  height: 56px;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--bg-base);
+  background: linear-gradient(135deg, #b0b0b0, #888);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s, opacity 0.2s, background 0.3s, box-shadow 0.3s;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.spaceman-cashout-btn.active {
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  opacity: 1;
+  box-shadow: 0 4px 24px rgba(212,175,90,0.3);
+  animation: cashoutPulse 1s infinite alternate;
+}
+
+.spaceman-cashout-btn.active:hover { transform: translateY(-2px); }
+.spaceman-cashout-btn.active:active { transform: scale(0.97); }
+
+.spaceman-cashout-btn.success {
+  background: linear-gradient(135deg, #5dcf96, var(--win-green));
+  opacity: 1;
+  animation: none;
+  box-shadow: 0 4px 20px rgba(76,175,130,0.3);
+}
+
+.spaceman-cashout-btn.exploded {
+  background: linear-gradient(135deg, #cf5c5c, #a03030);
+  opacity: 1;
+  animation: none;
+}
+
+.spaceman-cashout-btn:disabled {
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+@keyframes cashoutPulse {
+  from { box-shadow: 0 4px 20px rgba(212,175,90,0.25); }
+  to   { box-shadow: 0 4px 32px rgba(212,175,90,0.55); }
+}
+
+/* ── Info row ── */
+.spaceman-info-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.spaceman-info-item {
+  flex: 1;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 11px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.spaceman-info-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.spaceman-info-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.spaceman-info-val.gold {
+  color: var(--gold);
+  font-family: 'DM Serif Display', serif;
+  font-size: 15px;
+}
+
+@media (max-width: 420px) {
+  .sm-multi-value { font-size: 28px; }
+  #spacemanCanvas { height: 200px; }
+}
