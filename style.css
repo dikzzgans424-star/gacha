@@ -843,7 +843,6 @@ body::after {
   padding: 16px 18px;
   text-align: left;
 }
-
 .result-claim-title {
   font-size: 10px;
   font-weight: 700;
@@ -852,7 +851,6 @@ body::after {
   color: var(--win-green);
   margin-bottom: 12px;
 }
-
 .result-claim-step {
   display: flex;
   align-items: center;
@@ -861,7 +859,6 @@ body::after {
   font-size: 13px;
   color: var(--text-secondary);
 }
-
 .result-claim-step code {
   font-family: 'Courier New', monospace;
   background: rgba(76,175,130,0.12);
@@ -872,7 +869,6 @@ body::after {
   font-weight: 700;
   letter-spacing: 0.5px;
 }
-
 .result-claim-num {
   display: inline-flex;
   align-items: center;
@@ -887,7 +883,6 @@ body::after {
   font-weight: 800;
   flex-shrink: 0;
 }
-
 .result-claim-id {
   margin-top: 14px;
   padding-top: 12px;
@@ -897,7 +892,6 @@ body::after {
   justify-content: space-between;
   gap: 10px;
 }
-
 .result-claim-id-label {
   font-size: 9px;
   font-weight: 700;
@@ -905,7 +899,6 @@ body::after {
   text-transform: uppercase;
   color: var(--text-muted);
 }
-
 .result-claim-id-value {
   font-family: 'Courier New', monospace;
   font-size: 12px;
@@ -917,8 +910,6 @@ body::after {
   border-radius: 6px;
   border: 1px solid rgba(212,175,90,0.15);
 }
-
-/* ── Result Lose Extra ── */
 .result-lose-extra {
   margin-top: 18px;
   display: flex;
@@ -930,14 +921,145 @@ body::after {
   padding: 14px 16px;
   text-align: left;
 }
+.result-lose-icon { font-size: 28px; flex-shrink: 0; }
+.result-lose-msg  { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
 
-.result-lose-icon {
-  font-size: 28px;
-  flex-shrink: 0;
+/* ══════════════════════════════════════
+   ROULETTE — Canvas Wheel
+══════════════════════════════════════ */
+.roulette-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+  padding: 22px 22px 28px;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.roulette-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212,175,90,0.3), transparent);
 }
 
-.result-lose-msg {
-  font-size: 13px;
+/* Canvas wrapper — square, centered */
+.roulette-canvas-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto 20px;
+  aspect-ratio: 1 / 1;
+}
+
+#rouletteCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+/* HUD overlay in center */
+.roulette-center-hud {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  text-align: center;
+  /* size matches rInner (~40% of R) */
+  width: 36%;
+  height: 36%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.rch-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.3;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+  transition: color 0.2s;
+}
+.rch-chosen   { font-size: 12px; font-weight: 800; }
+.rch-red      { color: #e87070; }
+.rch-black    { color: var(--text-secondary); }
+.rch-spinning { color: var(--gold); animation: rch-pulse 0.8s infinite alternate; }
+.rch-result   { font-size: 15px; font-family: 'DM Serif Display', serif; letter-spacing: 2px; }
+.rch-win      { color: var(--win-green); }
+.rch-lose     { color: var(--lose-red); }
+
+@keyframes rch-pulse {
+  from { opacity: 0.6; }
+  to   { opacity: 1; }
+}
+
+/* ── Bet section ── */
+.roulette-bet-section { margin-bottom: 4px; }
+
+.roulette-bet-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.roulette-bet-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.bet-btn {
+  flex: 1;
+  height: 48px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-mid);
+  background: var(--bg-raised);
   color: var(--text-secondary);
-  line-height: 1.5;
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.12s, box-shadow 0.15s;
+}
+.bet-btn:hover   { transform: translateY(-1px); }
+.bet-btn:active  { transform: scale(0.97); }
+.bet-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+.bet-btn.bet-red.selected {
+  background: rgba(200,60,60,0.14);
+  border-color: rgba(200,60,60,0.5);
+  color: #e87070;
+  box-shadow: 0 0 16px rgba(200,60,60,0.12);
+}
+.bet-btn.bet-black.selected {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.22);
+  color: var(--text-primary);
+  box-shadow: 0 0 12px rgba(255,255,255,0.04);
+}
+
+.roulette-odds {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.odds-item { font-size: 10px; color: var(--text-muted); letter-spacing: 0.5px; }
+.odds-sep  { color: var(--border-mid); font-size: 12px; }
+
+@media (max-width: 420px) {
+  .roulette-canvas-wrap { max-width: 280px; }
 }
