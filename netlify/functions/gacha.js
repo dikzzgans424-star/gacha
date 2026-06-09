@@ -2,7 +2,7 @@ export async function handler() {
   const token = process.env.GITHUB_TOKEN;
 
   const res = await fetch(
-    "https://api.github.com/repos/dikzzgans424-star/slot/contents/gacha.json",
+    "https://api.github.com/repos/dikzzgans424-star/dbslot/contents/dbdata.json",
     {
       headers: {
         Authorization: `Bearer ${token}`,
