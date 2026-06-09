@@ -6,37 +6,42 @@
 const Spaceman = (() => {
 
   /* ── Config ── */
-  const TICK_MS        = 80;     // update interval
-  const SPEED_BASE     = 0.018;  // multiplier increment per tick (normal)
-  const SPEED_FAST     = 0.038;  // faster after 2x
-  const CASHOUT_WINDOW = 0.35;   // seconds before crash user can still cashout (WIN)
-  const ASTEROID_COUNT = 7;      // floating asteroids in canvas
+  const TICK_MS        = 33;    // ~60fps tick
+  const SPEED_BASE     = 0.012; // multiplier increment per tick (normal)
+  const SPEED_FAST     = 0.025; // faster after 2x
+  const ASTEROID_COUNT = 8;
+  const TRAIL_LEN      = 40;
 
   /* ── State ── */
-  let _gacha      = null;
-  let _callback   = null;
-  let _multiplier = 1.00;
-  let _crashAt    = 1.00;
-  let _phase      = 'idle';   // idle | flying | crashed | done
-  let _tickTimer  = null;
-  let _rafId      = null;
-  let _cashedOut  = false;
-  let _autoCrash  = false;
+  let _gacha       = null;
+  let _callback    = null;
+  let _multiplier  = 1.00;
+  let _crashAt     = 1.00;
+  let _autoCrashAt = 99;
+  let _phase       = 'idle';  // idle | ready | flying | crashed | done
+  let _tickTimer   = null;
+  let _rafId       = null;
+  let _cashedOut   = false;
+  let _autoCrash   = false;
+  let _crashHead   = false;   // user picked crashhead
+  let _isWin       = false;
 
-  /* ── Canvas & ctx ── */
+  /* ── Canvas ── */
   let _canvas = null;
   let _ctx    = null;
 
-  /* ── Asteroid objects ── */
+  /* ── Visuals ── */
   let _asteroids = [];
-
-  /* ── Spaceship animation state ── */
+  let _stars     = null;
   let _shipX = 0, _shipY = 0;
-  let _trail  = [];   // [{x,y}] last N positions
-  const TRAIL_LEN = 28;
+  let _trail = [];
+
+  /* ── Idle animation ── */
+  let _idleT    = 0;
+  let _idleRafId = null;
 
   /* ────────────────────────────────────
-     INIT
+     PUBLIC: INIT
   ──────────────────────────────────── */
   function init(gacha, callback) {
     _gacha    = gacha;
@@ -46,29 +51,31 @@ const Spaceman = (() => {
   }
 
   function _reset() {
-    _multiplier = 1.00;
-    _phase      = 'idle';
-    _cashedOut  = false;
-    _autoCrash  = false;
-    _trail      = [];
-    if (_tickTimer) clearInterval(_tickTimer);
-    if (_rafId)     cancelAnimationFrame(_rafId);
-    _tickTimer = null;
-    _rafId     = null;
+    _multiplier  = 1.00;
+    _phase       = 'idle';
+    _cashedOut   = false;
+    _autoCrash   = false;
+    _crashHead   = false;
+    _isWin       = false;
+    _autoCrashAt = 99;
+    _trail       = [];
+    _stars       = null;
+    if (_tickTimer)  clearInterval(_tickTimer);
+    if (_rafId)      cancelAnimationFrame(_rafId);
+    if (_idleRafId)  cancelAnimationFrame(_idleRafId);
+    _tickTimer = _rafId = _idleRafId = null;
   }
 
   /* ────────────────────────────────────
-     CRASH POINT CALCULATION
-     - WIN:  crashAt = targetMultiplier + small buffer
-     - LOSE: crashAt between 1.05 and 1.60 (crash early)
+     CRASH POINT
+     WIN:  crash 1.5 – 4.0  (cashout sebelumnya)
+     LOSE: crash 1.05 – 1.60 (crash early)
   ──────────────────────────────────── */
   function _calcCrashAt(isWin) {
     if (isWin) {
-      /* Pick a "safe" multiplier between 1.5 – 4.0, auto-cashout before it */
       const target = 1.5 + Math.random() * 2.5;
       return parseFloat((target + 0.15 + Math.random() * 0.25).toFixed(2));
     } else {
-      /* Crash before 1.5 so user never gets a good multiplier */
       return parseFloat((1.05 + Math.random() * 0.55).toFixed(2));
     }
   }
@@ -77,10 +84,8 @@ const Spaceman = (() => {
      RENDER — inject HTML
   ──────────────────────────────────── */
   function _render() {
-    /* Remove old gameArea */
     const old = document.getElementById('gameArea');
     if (old) old.remove();
-
     const infoCard = document.getElementById('gachaInfoCard');
 
     const area = document.createElement('div');
@@ -90,44 +95,54 @@ const Spaceman = (() => {
     area.innerHTML = `
       <div class="spaceman-card" id="spacemanCard">
 
-        <!-- Header label -->
         <div class="slot-section-label">🚀 SPACEMAN</div>
 
         <!-- Canvas -->
         <div class="spaceman-canvas-wrap">
-          <canvas id="spacemanCanvas" width="380" height="240"></canvas>
-          <!-- Multiplier overlay -->
+          <canvas id="spacemanCanvas"></canvas>
           <div class="spaceman-multiplier-hud" id="smHud">
             <div class="sm-multi-label">MULTIPLIER</div>
             <div class="sm-multi-value" id="smMultiVal">1.00×</div>
           </div>
         </div>
 
-        <!-- Cashout button -->
-        <button class="spaceman-cashout-btn" id="smCashoutBtn" onclick="Spaceman._onCashout()">
-          🚀 &nbsp;CASHOUT
-        </button>
+        <!-- 3-button row -->
+        <div class="sm-btn-row" id="smBtnRow">
+          <button class="sm-btn sm-btn-cashout" id="smCashoutBtn"
+                  onclick="Spaceman._onCashout()" disabled>
+            💰 CASHOUT
+          </button>
+          <button class="sm-btn sm-btn-start" id="smStartBtn"
+                  onclick="Spaceman._onStart()">
+            ▶ START
+          </button>
+          <button class="sm-btn sm-btn-crashhead" id="smCrashHeadBtn"
+                  onclick="Spaceman._onCrashHead()" disabled>
+            ☄️ CRASHHEAD
+          </button>
+        </div>
 
         <!-- Info row -->
         <div class="spaceman-info-row">
           <div class="spaceman-info-item">
             <span class="spaceman-info-label">Hadiah</span>
-            <span class="spaceman-info-val gold" id="smPrize">
+            <span class="spaceman-info-val gold">
               Rp ${Number(_gacha.money).toLocaleString('id-ID')}
             </span>
           </div>
           <div class="spaceman-info-item">
             <span class="spaceman-info-label">Status</span>
-            <span class="spaceman-info-val" id="smStatus">Tekan Cashout!</span>
+            <span class="spaceman-info-val" id="smStatus">Tekan START!</span>
           </div>
         </div>
 
-        <!-- Win rule -->
+        <!-- Rule -->
         <div class="win-rule">
           <div class="win-rule-title">🛸 Cara Main</div>
           <div class="win-rule-desc">
-            Tekan <strong>Cashout</strong> sebelum pesawat menabrak asteroid.<br>
-            Cashout = menang hadiah. Nabrak = lose!
+            Tekan <strong>START</strong> untuk meluncur.<br>
+            <strong>CASHOUT</strong> = ambil hadiah &amp; berhenti.<br>
+            <strong>CRASHHEAD</strong> = lanjut terbang sampai meledak.
           </div>
         </div>
 
@@ -144,26 +159,61 @@ const Spaceman = (() => {
     _canvas = document.getElementById('spacemanCanvas');
     _ctx    = _canvas.getContext('2d');
     _resizeCanvas();
-
-    /* Init asteroids */
     _initAsteroids();
 
-    /* Start flying after short delay */
-    setTimeout(_startFlight, 600);
+    /* Determine win/lose NOW so idle draws correct ship pos */
+    _isWin   = _gacha.result === 'win';
+    _crashAt = _calcCrashAt(_isWin);
+    if (_isWin) {
+      _autoCrashAt = _crashAt - 0.10 - Math.random() * 0.08;
+      _autoCrash   = true;
+    }
+
+    /* Set ship to start position */
+    const W = _canvas._lw || 380;
+    const H = _canvas._lh || 240;
+    _shipX  = W * 0.12;
+    _shipY  = H * 0.72;
+
+    /* Start idle loop */
+    _phase = 'ready';
+    _idleLoop();
   }
 
+  /* ────────────────────────────────────
+     RESIZE
+  ──────────────────────────────────── */
   function _resizeCanvas() {
     const wrap  = _canvas.parentElement;
-    const w     = wrap.clientWidth;
+    const w     = wrap.clientWidth || 380;
     const ratio = window.devicePixelRatio || 1;
-    _canvas.width  = w * ratio;
-    _canvas.height = 240 * ratio;
+    _canvas.width        = w * ratio;
+    _canvas.height       = 240 * ratio;
     _canvas.style.width  = w + 'px';
     _canvas.style.height = '240px';
     _ctx.scale(ratio, ratio);
-    /* Logical size */
     _canvas._lw = w;
     _canvas._lh = 240;
+  }
+
+  /* ────────────────────────────────────
+     IDLE LOOP — rocket diam, hover pelan
+  ──────────────────────────────────── */
+  function _idleLoop() {
+    if (_phase !== 'ready') return;
+    _idleT += 0.04;
+
+    const W = _canvas._lw || 380;
+    const H = _canvas._lh || 240;
+
+    /* Gentle hover */
+    const baseX = W * 0.12;
+    const baseY = H * 0.72;
+    _shipX = baseX + Math.sin(_idleT * 0.7) * 3;
+    _shipY = baseY + Math.sin(_idleT) * 5;
+
+    _drawScene(false);
+    _idleRafId = requestAnimationFrame(_idleLoop);
   }
 
   /* ────────────────────────────────────
@@ -177,13 +227,12 @@ const Spaceman = (() => {
       _asteroids.push({
         x:    20 + Math.random() * (W - 40),
         y:    20 + Math.random() * (H - 60),
-        r:    6  + Math.random() * 14,
-        vx:  -0.15 - Math.random() * 0.2,
-        vy:   (Math.random() - 0.5) * 0.15,
+        r:    5  + Math.random() * 13,
+        vx:  -0.18 - Math.random() * 0.22,
+        vy:   (Math.random() - 0.5) * 0.18,
         rot:  Math.random() * Math.PI * 2,
-        drot: (Math.random() - 0.5) * 0.012,
-        /* color tone */
-        tone: Math.floor(60 + Math.random() * 40),
+        drot: (Math.random() - 0.5) * 0.014,
+        tone: Math.floor(55 + Math.random() * 45),
       });
     }
   }
@@ -195,7 +244,6 @@ const Spaceman = (() => {
       a.x   += a.vx;
       a.y   += a.vy;
       a.rot += a.drot;
-      /* Wrap horizontally */
       if (a.x + a.r < 0)  a.x = W + a.r;
       if (a.x - a.r > W)  a.x = -a.r;
       if (a.y + a.r < 0)  a.y = H + a.r;
@@ -204,59 +252,81 @@ const Spaceman = (() => {
   }
 
   /* ────────────────────────────────────
-     FLIGHT LOGIC
+     BUTTON HANDLERS
   ──────────────────────────────────── */
-  function _startFlight() {
-    const isWin = _gacha.result === 'win' || (_gacha.result == null && Math.random() < 0.5);
-    _crashAt    = _calcCrashAt(isWin);
-    _phase      = 'flying';
+  function _onStart() {
+    if (_phase !== 'ready') return;
 
-    /* For WIN: schedule auto-cashout slightly before crash */
-    if (isWin) {
-      const cashoutAt = _crashAt - 0.10 - Math.random() * 0.08;
-      _autoCrashAt    = cashoutAt;
-      _autoCrash      = true;
-    }
+    cancelAnimationFrame(_idleRafId);
+    _idleRafId = null;
 
-    /* Init ship position */
-    const W = _canvas._lw || 380;
-    const H = _canvas._lh || 240;
-    _shipX  = W * 0.12;
-    _shipY  = H * 0.72;
+    /* Hide start, enable cashout + crashhead */
+    const startBtn     = document.getElementById('smStartBtn');
+    const cashoutBtn   = document.getElementById('smCashoutBtn');
+    const crashHeadBtn = document.getElementById('smCrashHeadBtn');
 
-    /* Enable cashout button */
-    const btn = document.getElementById('smCashoutBtn');
-    if (btn) {
-      btn.disabled  = false;
-      btn.classList.add('active');
-    }
+    if (startBtn)     { startBtn.disabled = true; startBtn.classList.add('used'); }
+    if (cashoutBtn)   { cashoutBtn.disabled = false; cashoutBtn.classList.add('active'); }
+    if (crashHeadBtn) { crashHeadBtn.disabled = false; crashHeadBtn.classList.add('active'); }
 
+    const stat = document.getElementById('smStatus');
+    if (stat) stat.textContent = 'Terbang! Cashout atau Crashhead?';
+
+    _phase = 'flying';
     _tickTimer = setInterval(_tick, TICK_MS);
     _rafId     = requestAnimationFrame(_drawLoop);
   }
 
-  let _autoCrashAt = 99;
+  function _onCashout() {
+    if (_phase !== 'flying' || _cashedOut) return;
+    if (_isWin) {
+      _triggerCashout();
+    } else {
+      /* Lose — tekan cashout langsung crash */
+      _triggerCrash();
+    }
+  }
 
+  function _onCrashHead() {
+    if (_phase !== 'flying' || _cashedOut) return;
+    _crashHead = true;
+
+    const crashHeadBtn = document.getElementById('smCrashHeadBtn');
+    const cashoutBtn   = document.getElementById('smCashoutBtn');
+    if (crashHeadBtn) { crashHeadBtn.disabled = true; crashHeadBtn.classList.remove('active'); crashHeadBtn.classList.add('used'); }
+    if (cashoutBtn)   { cashoutBtn.disabled   = true; cashoutBtn.classList.remove('active'); }
+
+    const stat = document.getElementById('smStatus');
+    if (stat) { stat.textContent = '☄️ Lanjut sampai meledak...'; stat.style.color = 'var(--lose-red)'; }
+
+    /* Crashhead = selalu lose, biarkan _tick() jalankan crash normal */
+    /* Override: paksa crash segera kalau sudah cashout path */
+    _autoCrash = false;
+  }
+
+  /* ────────────────────────────────────
+     TICK
+  ──────────────────────────────────── */
   function _tick() {
     if (_phase !== 'flying') return;
 
-    const inc = _multiplier >= 2 ? SPEED_FAST : SPEED_BASE;
-    _multiplier = parseFloat((_multiplier + inc).toFixed(2));
+    const inc   = _multiplier >= 2 ? SPEED_FAST : SPEED_BASE;
+    _multiplier = parseFloat((_multiplier + inc).toFixed(3));
 
-    /* Update HUD */
     const val = document.getElementById('smMultiVal');
     if (val) {
       val.textContent = _multiplier.toFixed(2) + '×';
-      val.className   = 'sm-multi-value ' + (_multiplier >= 2 ? 'danger' : '');
+      val.className   = 'sm-multi-value' +
+        (_multiplier >= 2.5 ? ' danger' : _multiplier >= 1.8 ? ' warning' : '');
     }
 
-    /* AUTO CASHOUT (WIN path) */
-    if (_autoCrash && _multiplier >= _autoCrashAt && !_cashedOut) {
+    /* Auto cashout — WIN path, only if user belum pilih crashhead */
+    if (_autoCrash && !_crashHead && _multiplier >= _autoCrashAt && !_cashedOut) {
       _triggerCashout();
       return;
     }
 
-    /* CRASH */
+    /* Crash */
     if (_multiplier >= _crashAt) {
       _triggerCrash();
     }
@@ -265,31 +335,15 @@ const Spaceman = (() => {
   /* ────────────────────────────────────
      CASHOUT & CRASH
   ──────────────────────────────────── */
-  function _onCashout() {
-    if (_phase !== 'flying' || _cashedOut) return;
-    /* Manual cashout — only wins if result is win */
-    const isWin = _gacha.result === 'win';
-    if (isWin) {
-      _triggerCashout();
-    } else {
-      /* Lose: trigger crash immediately on manual cashout */
-      _triggerCrash();
-    }
-  }
-
   function _triggerCashout() {
     if (_cashedOut) return;
     _cashedOut = true;
     _phase     = 'done';
     clearInterval(_tickTimer);
 
-    const btn = document.getElementById('smCashoutBtn');
-    if (btn) {
-      btn.disabled    = true;
-      btn.textContent = '✓ Cashed Out!';
-      btn.classList.remove('active');
-      btn.classList.add('success');
-    }
+    _disableAllBtns();
+    const cashoutBtn = document.getElementById('smCashoutBtn');
+    if (cashoutBtn) { cashoutBtn.textContent = '✓ Cashed Out!'; cashoutBtn.classList.add('success'); }
 
     const stat = document.getElementById('smStatus');
     if (stat) { stat.textContent = '✅ Cashout berhasil!'; stat.style.color = 'var(--win-green)'; }
@@ -300,23 +354,19 @@ const Spaceman = (() => {
     setTimeout(() => {
       cancelAnimationFrame(_rafId);
       _callback(true, _gacha.money);
-    }, 1400);
+    }, 1500);
   }
 
   function _triggerCrash() {
     _phase = 'crashed';
     clearInterval(_tickTimer);
 
-    const btn = document.getElementById('smCashoutBtn');
-    if (btn) {
-      btn.disabled    = true;
-      btn.textContent = '💥 NABRAK!';
-      btn.classList.remove('active');
-      btn.classList.add('exploded');
-    }
+    _disableAllBtns();
+    const startBtn = document.getElementById('smStartBtn');
+    if (startBtn) { startBtn.textContent = '💥'; }
 
     const val = document.getElementById('smMultiVal');
-    if (val) { val.textContent = '💥 CRASH'; val.className = 'sm-multi-value crash'; }
+    if (val) { val.textContent = '💥 CRASH!'; val.className = 'sm-multi-value crash'; }
 
     const stat = document.getElementById('smStatus');
     if (stat) { stat.textContent = '💀 Pesawat meledak!'; stat.style.color = 'var(--lose-red)'; }
@@ -324,13 +374,19 @@ const Spaceman = (() => {
     const hud = document.getElementById('smHud');
     if (hud) hud.classList.add('lose');
 
-    /* Explosion draw */
     _drawExplosion();
 
     setTimeout(() => {
       cancelAnimationFrame(_rafId);
       _callback(false, _gacha.money);
-    }, 1800);
+    }, 1900);
+  }
+
+  function _disableAllBtns() {
+    ['smCashoutBtn', 'smStartBtn', 'smCrashHeadBtn'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) { b.disabled = true; b.classList.remove('active'); }
+    });
   }
 
   /* ────────────────────────────────────
@@ -338,66 +394,79 @@ const Spaceman = (() => {
   ──────────────────────────────────── */
   function _drawLoop() {
     if (_phase === 'done') return;
-    _draw();
+    _drawScene(true);
     _rafId = requestAnimationFrame(_drawLoop);
   }
 
-  function _draw() {
+  function _drawScene(moving) {
     const ctx = _ctx;
     const W   = _canvas._lw || 380;
     const H   = _canvas._lh || 240;
 
-    /* Clear */
     ctx.clearRect(0, 0, W, H);
 
-    /* Background */
-    const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-    bgGrad.addColorStop(0, '#07070f');
-    bgGrad.addColorStop(1, '#0c0c1e');
-    ctx.fillStyle = bgGrad;
+    /* BG gradient */
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0,   '#06060e');
+    bg.addColorStop(0.5, '#09091a');
+    bg.addColorStop(1,   '#0d0d22');
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, W, H);
 
-    /* Stars */
+    /* Nebula glow */
+    const neb = ctx.createRadialGradient(W * 0.7, H * 0.3, 0, W * 0.7, H * 0.3, W * 0.5);
+    neb.addColorStop(0,   'rgba(80,40,160,0.07)');
+    neb.addColorStop(0.5, 'rgba(40,20,100,0.04)');
+    neb.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle = neb;
+    ctx.fillRect(0, 0, W, H);
+
     _drawStars(ctx, W, H);
 
-    /* Asteroids */
     _updateAsteroids();
     _drawAsteroids(ctx);
 
-    if (_phase === 'flying' || _phase === 'done') {
-      /* Update ship position — arc upward */
-      const t  = (_multiplier - 1) / 4;
+    /* Update ship position when flying */
+    if (moving && _phase === 'flying') {
+      const t  = (_multiplier - 1) / 4.5;
       const tE = Math.min(t, 1);
-      _shipX   = W * (0.12 + tE * 0.55);
-      _shipY   = H * (0.72 - tE * 0.55);
+      /* Smooth easing */
+      const ease = tE < 0.5 ? 2 * tE * tE : -1 + (4 - 2 * tE) * tE;
+      _shipX = W * (0.10 + ease * 0.60);
+      _shipY = H * (0.75 - ease * 0.60);
+    }
 
-      /* Trail */
+    /* Trail */
+    if (_phase === 'flying') {
       _trail.push({ x: _shipX, y: _shipY });
       if (_trail.length > TRAIL_LEN) _trail.shift();
-
-      _drawTrail(ctx);
-      _drawShip(ctx, _shipX, _shipY, false);
     }
+
+    _drawTrail(ctx);
+    _drawShip(ctx, _shipX, _shipY);
   }
 
   /* ── Stars ── */
-  let _stars = null;
   function _drawStars(ctx, W, H) {
     if (!_stars) {
       _stars = [];
-      for (let i = 0; i < 80; i++) {
+      for (let i = 0; i < 100; i++) {
         _stars.push({
-          x: Math.random() * 380,
-          y: Math.random() * 240,
-          r: 0.5 + Math.random() * 1.2,
-          a: 0.2 + Math.random() * 0.6,
+          x: Math.random() * 420,
+          y: Math.random() * 260,
+          r: 0.4 + Math.random() * 1.4,
+          a: 0.15 + Math.random() * 0.7,
+          tw: Math.random() * Math.PI * 2,   // twinkle phase
+          ts: 0.01 + Math.random() * 0.03,   // twinkle speed
         });
       }
     }
     _stars.forEach(s => {
+      s.tw += s.ts;
+      const alpha = s.a * (0.6 + 0.4 * Math.sin(s.tw));
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,255,255,${s.a})`;
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
       ctx.fill();
     });
   }
@@ -409,21 +478,24 @@ const Spaceman = (() => {
       ctx.translate(a.x, a.y);
       ctx.rotate(a.rot);
 
-      /* Rocky shape */
-      ctx.beginPath();
       const sides = 7;
+      ctx.beginPath();
       for (let i = 0; i < sides; i++) {
-        const ang  = (i / sides) * Math.PI * 2;
-        const jit  = 0.7 + ((i * 37 + a.tone) % 10) / 30;
-        const rx   = Math.cos(ang) * a.r * jit;
-        const ry   = Math.sin(ang) * a.r * jit;
+        const ang = (i / sides) * Math.PI * 2;
+        const jit = 0.65 + ((i * 41 + a.tone) % 12) / 35;
+        const rx  = Math.cos(ang) * a.r * jit;
+        const ry  = Math.sin(ang) * a.r * jit;
         i === 0 ? ctx.moveTo(rx, ry) : ctx.lineTo(rx, ry);
       }
       ctx.closePath();
 
-      ctx.fillStyle   = `rgb(${a.tone},${a.tone - 10},${a.tone - 20})`;
-      ctx.strokeStyle = `rgba(200,180,140,0.25)`;
-      ctx.lineWidth   = 1;
+      /* Gradient fill for depth */
+      const ag = ctx.createRadialGradient(-a.r * 0.3, -a.r * 0.3, 0, 0, 0, a.r * 1.2);
+      ag.addColorStop(0, `rgb(${a.tone + 20},${a.tone + 10},${a.tone})`);
+      ag.addColorStop(1, `rgb(${a.tone - 20},${a.tone - 28},${a.tone - 35})`);
+      ctx.fillStyle   = ag;
+      ctx.strokeStyle = `rgba(200,185,150,0.2)`;
+      ctx.lineWidth   = 0.8;
       ctx.fill();
       ctx.stroke();
       ctx.restore();
@@ -434,69 +506,100 @@ const Spaceman = (() => {
   function _drawTrail(ctx) {
     if (_trail.length < 2) return;
     for (let i = 1; i < _trail.length; i++) {
-      const alpha = (i / _trail.length) * 0.55;
-      const width = (i / _trail.length) * 3;
+      const p = i / _trail.length;
       ctx.beginPath();
       ctx.moveTo(_trail[i - 1].x, _trail[i - 1].y);
-      ctx.lineTo(_trail[i].x, _trail[i].y);
-      ctx.strokeStyle = `rgba(255,180,60,${alpha})`;
-      ctx.lineWidth   = width;
+      ctx.lineTo(_trail[i].x,     _trail[i].y);
+      ctx.strokeStyle = `rgba(255,${140 + Math.floor(p * 60)},40,${p * 0.6})`;
+      ctx.lineWidth   = p * 3.5;
       ctx.lineCap     = 'round';
       ctx.stroke();
     }
-    /* Glow at tip */
-    const tip = _trail[_trail.length - 1];
-    const g   = ctx.createRadialGradient(tip.x, tip.y, 0, tip.x, tip.y, 10);
-    g.addColorStop(0, 'rgba(255,140,40,0.5)');
-    g.addColorStop(1, 'rgba(255,140,40,0)');
-    ctx.beginPath();
-    ctx.arc(tip.x, tip.y, 10, 0, Math.PI * 2);
-    ctx.fillStyle = g;
-    ctx.fill();
+    /* Tip glow */
+    if (_trail.length > 0) {
+      const tip = _trail[_trail.length - 1];
+      const g   = ctx.createRadialGradient(tip.x, tip.y, 0, tip.x, tip.y, 14);
+      g.addColorStop(0,   'rgba(255,160,40,0.55)');
+      g.addColorStop(0.5, 'rgba(255,80,20,0.2)');
+      g.addColorStop(1,   'rgba(255,40,0,0)');
+      ctx.beginPath();
+      ctx.arc(tip.x, tip.y, 14, 0, Math.PI * 2);
+      ctx.fillStyle = g;
+      ctx.fill();
+    }
   }
 
   /* ── Ship ── */
-  function _drawShip(ctx, x, y, exploded) {
+  function _drawShip(ctx, x, y) {
     ctx.save();
     ctx.translate(x, y);
-    /* Tilt upward based on speed */
-    const tilt = -0.45 - (_multiplier - 1) * 0.04;
-    ctx.rotate(Math.min(tilt, -0.1));
+    const baseTilt = -0.42;
+    const flyTilt  = _phase === 'flying' ? -(_multiplier - 1) * 0.03 : 0;
+    ctx.rotate(baseTilt + flyTilt);
+    ctx.font         = '26px serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
 
-    if (exploded) {
-      ctx.font      = '28px serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('💥', 0, 0);
-    } else {
-      ctx.font      = '26px serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('🚀', 0, 0);
-    }
+    /* Soft glow behind ship */
+    const sg = ctx.createRadialGradient(0, 0, 0, 0, 0, 18);
+    sg.addColorStop(0,   'rgba(255,180,60,0.2)');
+    sg.addColorStop(1,   'rgba(255,180,60,0)');
+    ctx.fillStyle = sg;
+    ctx.beginPath();
+    ctx.arc(0, 0, 18, 0, Math.PI * 2);
+    ctx.fill();
 
+    ctx.fillText('🚀', 0, 0);
     ctx.restore();
   }
 
   /* ── Explosion ── */
   function _drawExplosion() {
     let frame  = 0;
-    const maxF = 22;
+    const maxF = 30;
+    const sx   = _shipX;
+    const sy   = _shipY;
+
     const loop = () => {
       if (!_ctx || frame > maxF) return;
-      _draw();
+
       const ctx = _ctx;
-      const r   = frame * 5;
-      const a   = 1 - frame / maxF;
-      const g   = ctx.createRadialGradient(_shipX, _shipY, 0, _shipX, _shipY, r);
-      g.addColorStop(0,   `rgba(255,220,80,${a})`);
-      g.addColorStop(0.4, `rgba(255,80,20,${a * 0.7})`);
-      g.addColorStop(1,   `rgba(255,20,0,0)`);
+      const p   = frame / maxF;
+      const r   = frame * 6;
+      const a   = 1 - p;
+
+      /* Redraw background so explosion composites correctly */
+      _drawScene(false);
+
+      /* Outer ring */
+      const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
+      g.addColorStop(0,   `rgba(255,230,80,${a * 0.9})`);
+      g.addColorStop(0.3, `rgba(255,100,20,${a * 0.7})`);
+      g.addColorStop(0.7, `rgba(200,20,0,${a * 0.4})`);
+      g.addColorStop(1,   `rgba(100,0,0,0)`);
       ctx.beginPath();
-      ctx.arc(_shipX, _shipY, r, 0, Math.PI * 2);
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
       ctx.fillStyle = g;
       ctx.fill();
-      /* Ship emoji replaced */
-      ctx.font = '28px serif'; ctx.textAlign = 'center';
-      ctx.fillText('💥', _shipX, _shipY + 10);
+
+      /* Spark particles */
+      for (let i = 0; i < 8; i++) {
+        const ang  = (i / 8) * Math.PI * 2 + frame * 0.1;
+        const dist = frame * 3.5;
+        const px   = sx + Math.cos(ang) * dist;
+        const py   = sy + Math.sin(ang) * dist;
+        ctx.beginPath();
+        ctx.arc(px, py, 2.5 * (1 - p), 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,200,60,${a})`;
+        ctx.fill();
+      }
+
+      /* Emoji */
+      ctx.font         = '28px serif';
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('💥', sx, sy);
+
       frame++;
       requestAnimationFrame(loop);
     };
@@ -504,6 +607,6 @@ const Spaceman = (() => {
   }
 
   /* ── Expose ── */
-  return { init, _onCashout };
+  return { init, _onStart, _onCashout, _onCrashHead };
 
 })();
