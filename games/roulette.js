@@ -262,83 +262,123 @@ const Roulette = (() => {
   /* ══════════════════════════════════════
      ANIMATION LOGIC
   ══════════════════════════════════════ */
-  function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+  function easeOut(t)     { return 1 - Math.pow(1 - t, 3); }
+  function easeOutStrong(t) { return 1 - Math.pow(1 - t, 5); }
 
+  /*
+   * Approach: pre-compute SEMUA angle di awal sebelum animasi jalan.
+   * - wheelAng  diintegrasikan secara analitis per phase → tidak ada drift
+   * - ballAng   sama — diintegrasikan analytically
+   * - Phase 3   lerp dari ballAng_end_phase2 → slotWorldAng_at_phase3_end
+   *             slotWorldAng dihitung dari wheelAng yang sudah pasti
+   * Hasilnya: bola SELALU berhenti tepat di slot, tidak pernah overshoot.
+   */
   async function runSpin(finalSlotIdx) {
-    const WHEEL_SPEED  = 0.008;  // rad/frame wheel rotation
-    const BALL_SPEED_0 = -0.045; // initial ball rad/frame (opposite dir)
+    /* ── Konstanta kecepatan (rad/ms) ── */
+    const W_SPD  =  0.0014;   // wheel: searah jarum jam
+    const B_SPD  = -0.0055;   // bola : berlawanan arah (lebih cepat)
 
-    /* Phase durations in ms */
-    const phaseDur = {
-      spin:   3200,  // ball spinning fast
-      slow:   2400,  // decelerating
-      fall:   600,   // ball falling inward
-      bounce: 500,   // settle bounce
+    /* ── Durasi tiap phase (ms) ── */
+    const D = { spin: 3000, slow: 2500, fall: 700, bounce: 600 };
+    const T = {
+      slow:   D.spin,
+      fall:   D.spin + D.slow,
+      bounce: D.spin + D.slow + D.fall,
+      end:    D.spin + D.slow + D.fall + D.bounce,
     };
 
-    const totalMs = phaseDur.spin + phaseDur.slow + phaseDur.fall + phaseDur.bounce;
+    /*
+     * ── Pre-compute angle di akhir tiap phase ──
+     *
+     * Phase 1 (0 → D.spin): konstan W_SPD & B_SPD
+     * Phase 2 (decel): integral dari W_SPD*(1-easeOut(t)) dt ≈ W_SPD * D.slow * 0.25
+     *   (faktor 0.25 = integral easeOut cubic dari 0→1 = 1 - 1/4 = 0.75, sisanya 0.25)
+     * Phase 3: wheel sangat pelan (W_SPD*0.1), bola lerp ke target
+     * Phase 4: wheel nyaris stop
+     */
+    const wheelEnd1 = W_SPD * D.spin;
+    const wheelEnd2 = wheelEnd1 + W_SPD * D.slow * 0.25;
+    const wheelEnd3 = wheelEnd2 + W_SPD * 0.1 * D.fall;
+    // wheelEnd4 tidak perlu — wheel freeze di phase 4 untuk presisi
 
-    /* Target: center angle of final slot */
-    const targetSlotAng = finalSlotIdx * SLOT_ANG;
+    const ballEnd1  = B_SPD * D.spin;
+    const ballEnd2  = ballEnd1 + B_SPD * D.slow * 0.25;
+    // ballEnd3 = slotWorldAng — dihitung di bawah
 
-    /* We'll compute where ball needs to land */
-    let wheelAng = 0;
-    let ballAng  = Math.random() * Math.PI * 2; // random start
+    /* ── Angle awal bola (random biar kelihatan beda tiap spin) ── */
+    const ballStart = Math.random() * Math.PI * 2;
+
+    /* ── Target: slot center di world coords saat akhir phase 3 ── */
+    const slotLocal    = finalSlotIdx * SLOT_ANG;
+    const slotWorldEnd = wheelEnd3 + slotLocal; // posisi slot di world frame saat bola jatuh
+
+    /* Bola harus ada di slotWorldEnd saat phase 3 selesai.
+       Hitung jarak angular terpendek dari ballEnd2+ballStart ke slotWorldEnd. */
+    const rawBallEnd3 = ballStart + ballEnd2;
+    let diff = slotWorldEnd - rawBallEnd3;
+    /* Normalisasi: ambil yang terpendek, arah boleh negatif/positif */
+    diff = diff - Math.round(diff / (Math.PI * 2)) * (Math.PI * 2);
+    const ballEnd3 = rawBallEnd3 + diff; // angle absolut bola saat akhir phase 3
+
+    /* ── State mutable ── */
+    let wheelAng  = 0;
+    let ballAng   = ballStart;
+    let ballOrbit = R * rBallOrbit;
 
     const start = performance.now();
-    let lastT   = start;
 
     return new Promise(resolve => {
       function frame(now) {
-        const elapsed = now - start;
-        const dt      = now - lastT;
-        lastT = now;
-
-        let ballOrbitR = R * rBallOrbit;
+        const e  = now - start;   // elapsed ms
         let done = false;
 
-        if (elapsed < phaseDur.spin) {
-          /* Phase 1: full speed */
-          wheelAng += WHEEL_SPEED * dt * 0.06;
-          ballAng  += BALL_SPEED_0 * dt * 0.06;
+        if (e < D.spin) {
+          /* ── Phase 1: full speed ── */
+          const t  = e / D.spin;
+          wheelAng  = W_SPD * e;
+          ballAng   = ballStart + B_SPD * e;
+          ballOrbit = R * rBallOrbit;
 
-        } else if (elapsed < phaseDur.spin + phaseDur.slow) {
-          /* Phase 2: decelerate */
-          const t = (elapsed - phaseDur.spin) / phaseDur.slow;
-          const factor = 1 - easeOut(t);
-          wheelAng += WHEEL_SPEED * factor * dt * 0.06;
-          ballAng  += BALL_SPEED_0 * factor * dt * 0.06;
+        } else if (e < T.fall) {
+          /* ── Phase 2: decelerate ── */
+          const t      = (e - D.spin) / D.slow;
+          const factor = 1 - easeOut(t);          // mulai 1, turun ke 0
+          const integral = t - easeOut(t) * 0.75; // ∫factor dt (approx)
+          wheelAng  = wheelEnd1 + W_SPD * D.slow * integral;
+          ballAng   = ballStart + ballEnd1 + B_SPD * D.slow * integral;
+          ballOrbit = R * rBallOrbit;
 
-        } else if (elapsed < phaseDur.spin + phaseDur.slow + phaseDur.fall) {
-          /* Phase 3: ball falls inward — compute current wheel angle to find slot center */
-          const t = (elapsed - phaseDur.spin - phaseDur.slow) / phaseDur.fall;
+        } else if (e < T.bounce) {
+          /* ── Phase 3: fall ── */
+          const t   = (e - T.fall) / D.fall;
+          const tE  = easeOutStrong(t);
 
-          /* Where should the ball land? slot center in world coords = targetSlotAng + wheelAng */
-          const slotWorldAng = wheelAng + targetSlotAng;
+          /* Wheel terus muter pelan */
+          wheelAng  = wheelEnd2 + W_SPD * 0.1 * (e - T.fall);
 
-          /* Lerp ballAng toward slotWorldAng */
-          let diff = slotWorldAng - ballAng;
-          diff = ((diff + Math.PI) % (Math.PI * 2)) - Math.PI; // normalize to -π..π
-          ballAng += diff * t * 0.12;
+          /* Bola lerp dari posisi akhir phase2 → ballEnd3 */
+          const ballPhase2 = ballStart + ballEnd2;
+          ballAng   = ballPhase2 + diff * tE;
 
-          /* Fall inward */
-          ballOrbitR = R * (rBallOrbit - (rBallOrbit - rBallFall) * easeOut(t));
-
-          /* Slow wheel too */
-          wheelAng += WHEEL_SPEED * 0.15 * dt * 0.06;
+          /* Orbit mengecil */
+          ballOrbit = R * (rBallOrbit + (rBallFall - rBallOrbit) * tE);
 
         } else {
-          /* Phase 4: settled with tiny bounce */
-          const t = (elapsed - phaseDur.spin - phaseDur.slow - phaseDur.fall) / phaseDur.bounce;
-          const slotWorldAng = wheelAng + targetSlotAng;
-          ballAng   = slotWorldAng;
-          ballOrbitR = R * (rBallFall + Math.sin(t * Math.PI) * 0.025);
-          wheelAng  += WHEEL_SPEED * 0.05 * dt * 0.06;
+          /* ── Phase 4: bounce settle ── */
+          const t   = (e - T.bounce) / D.bounce;
 
-          if (elapsed >= totalMs) done = true;
+          /* Wheel freeze — slot harus pas */
+          wheelAng  = wheelEnd3;
+          ballAng   = slotWorldEnd;   // tepat di slot, tidak kemana-mana
+
+          /* Micro-bounce: overshoot kecil lalu balik */
+          const bounce = Math.sin(t * Math.PI) * (1 - t) * 0.028;
+          ballOrbit = R * (rBallFall + bounce);
+
+          if (e >= T.end) done = true;
         }
 
-        drawFrame(wheelAng, ballOrbitR, ballAng);
+        drawFrame(wheelAng, ballOrbit, ballAng);
         if (done) { resolve(wheelAng); return; }
         _raf = requestAnimationFrame(frame);
       }
