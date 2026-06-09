@@ -445,15 +445,30 @@ const Roulette = (() => {
     window.setStatus('🎡 Bola berputar...', true);
 
     /* Tentukan hasil */
+    /* Tentukan hasil */
     const chance = _gacha.isPremium ? 0.45 : 0.35;
     const isWin  = Math.random() < chance;
-    const resultColor = isWin ? _bet : (_bet === 'red' ? 'black' : 'red');
+
+    /* FIX BUG 12: saat kalah, hasil bisa juga hijau (bukan cuma lawan warna)
+       Jika bet merah → kalah ke hitam atau hijau. Jika bet hitam → kalah ke merah atau hijau. */
+    let resultColor;
+    if (isWin) {
+      resultColor = _bet;
+    } else {
+      /* Kumpulkan semua warna yang bukan bet, pilih acak (termasuk green) */
+      const losingColors = [...new Set(SLOTS.map(s => s.color).filter(c => c !== _bet))];
+      resultColor = losingColors[Math.floor(Math.random() * losingColors.length)];
+    }
 
     /* Pilih slot final */
     const candidates = SLOTS
       .map((s, i) => s.color === resultColor ? i : null)
       .filter(v => v !== null);
     const finalSlotIdx = candidates[Math.floor(Math.random() * candidates.length)];
+
+    /* FIX BUG 11: hitung nomor dari finalSlotIdx agar konsisten dengan bola,
+       bukan random independen yang bisa tidak nyambung */
+    const displayNumber = finalSlotIdx + 1;
 
     /* Update HUD */
     const lbl = document.getElementById('rchLabel');
@@ -464,14 +479,11 @@ const Roulette = (() => {
 
     if (window._gameFinished) return;
 
-    /* Result HUD */
+    /* Result HUD — FIX BUG 11: pakai displayNumber (dari finalSlotIdx) bukan random */
     const colorEmoji = resultColor === 'red' ? '🔴' : resultColor === 'black' ? '⚫' : '🟢';
-    const number = resultColor === 'red'
-      ? (Math.floor(Math.random() * 18) * 2 + 1)
-      : (Math.floor(Math.random() * 18) * 2);
 
     if (lbl) {
-      lbl.textContent = `${colorEmoji} ${number}`;
+      lbl.textContent = `${colorEmoji} ${displayNumber}`;
       lbl.className   = 'rch-label rch-result ' + (isWin ? 'rch-win' : 'rch-lose');
     }
 

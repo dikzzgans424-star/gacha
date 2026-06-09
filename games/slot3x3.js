@@ -40,6 +40,12 @@ const Slot3x3 = (() => {
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
+  /* FIX BUG 2: _gameFinished di app.js dideklarasikan dengan `let`,
+     sehingga tidak ter-expose ke window. Gunakan helper ini di semua cek. */
+  function isGameDone() {
+    return typeof _gameFinished !== 'undefined' ? _gameFinished : !!window._gameFinished;
+  }
+
   /*
    * buildReel — isi reel dengan:
    *   [PAD item random] [top] [mid] [bot] [1 buffer]
@@ -171,7 +177,7 @@ const Slot3x3 = (() => {
 
   /* ── Spin ── */
   async function spin() {
-    if (window._gameFinished) return;
+    if (isGameDone()) return;
 
     const btn = document.getElementById('spinGameBtn');
     if (!btn || btn.disabled) return;
@@ -221,7 +227,7 @@ const Slot3x3 = (() => {
       })
     );
 
-    if (window._gameFinished) return;
+    if (isGameDone()) return;
 
     /* ── 4. READ-BACK dari DOM — baca simbol payline ── */
     const paylineReels = [
@@ -260,7 +266,7 @@ const Slot3x3 = (() => {
 
     await new Promise(r => setTimeout(r, actualWin ? 1200 : 700));
 
-    if (window._gameFinished) return;
+    if (isGameDone()) return;
     _onResult(actualWin, _gacha.money);
   }
 

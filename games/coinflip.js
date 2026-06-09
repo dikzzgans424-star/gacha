@@ -103,9 +103,9 @@ const CoinFlip = (() => {
     ctx.scale(1, ry / (rx || 1));
     ctx.beginPath();
     ctx.arc(0, 0, rx, 0, Math.PI * 2);
-    ctx.restore();
     ctx.fillStyle = GOLD.dark;
-    ctx.fill();
+    ctx.fill();     // FIX BUG 7: fill SEBELUM restore agar transform masih aktif
+    ctx.restore();
 
     /* ── Face gradient ── */
     const isHeads = side === 'heads';
@@ -186,36 +186,33 @@ const CoinFlip = (() => {
       ctx.globalAlpha = 1;
     }
 
-    /* ── Specular shine streak (bergerak sesuai flip) ── */
-    if (absX > 0.15) {
-      const shineX = cx + rx * (0.6 - t * 0.4) * Math.sign(scaleX);
-      const shineY = cy - ry * 0.5;
-      const sg = ctx.createLinearGradient(
-        shineX - rx * 0.15, shineY,
-        shineX + rx * 0.05, shineY + ry * 0.5
-      );
-      sg.addColorStop(0,   'rgba(255,255,255,0)');
-      sg.addColorStop(0.4, 'rgba(255,255,255,0.22)');
-      sg.addColorStop(1,   'rgba(255,255,255,0)');
+      /* ── Specular shine streak (bergerak sesuai flip) ── */
+      if (absX > 0.15) {
+        const shineX = cx + rx * (0.6 - t * 0.4) * Math.sign(scaleX);
+        const shineY = cy - ry * 0.5;
+        const sg = ctx.createLinearGradient(
+          shineX - rx * 0.15, shineY,
+          shineX + rx * 0.05, shineY + ry * 0.5
+        );
+        sg.addColorStop(0,   'rgba(255,255,255,0)');
+        sg.addColorStop(0.4, 'rgba(255,255,255,0.22)');
+        sg.addColorStop(1,   'rgba(255,255,255,0)');
 
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.scale(rx / CR, 1);
-      ctx.beginPath();
-      ctx.arc(0, 0, CR * 0.99, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.restore();
-      ctx.fillStyle = sg;
-
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.scale(rx / CR, 1);
-      ctx.beginPath();
-      ctx.arc(0, 0, CR * 0.99, 0, Math.PI * 2);
-      ctx.restore();
-      ctx.fill();
+        /* FIX BUG 6: clip dan fill harus dalam save/restore yang sama
+           agar clip aktif saat fill dieksekusi */
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(rx / CR, 1);
+        ctx.beginPath();
+        ctx.arc(0, 0, CR * 0.99, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.scale(CR / (rx || 1), 1);   // balik scale agar fillRect lurus
+        ctx.translate(-cx, -cy);
+        ctx.fillStyle = sg;
+        ctx.fillRect(cx - rx, cy - ry, rx * 2, ry * 2);
+        ctx.restore();
+      }
     }
-  }
 
   /* ── Shadow bawah koin (div CSS, bukan canvas) ── */
   function updateShadow(yOffset, scaleX) {

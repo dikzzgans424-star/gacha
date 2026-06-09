@@ -66,6 +66,12 @@ const Spaceman = (() => {
     _tickTimer = _rafId = _idleRafId = null;
   }
 
+  /* FIX BUG 10: _gameFinished di app.js adalah `let`, tidak ter-expose ke window.
+     Gunakan helper ini untuk semua cek. */
+  function isGameDone() {
+    return typeof _gameFinished !== 'undefined' ? _gameFinished : !!window._gameFinished;
+  }
+
   /* ────────────────────────────────────
      CRASH POINT
      WIN:  crash 1.5 – 4.0  (cashout sebelumnya)
@@ -299,9 +305,10 @@ const Spaceman = (() => {
     const stat = document.getElementById('smStatus');
     if (stat) { stat.textContent = '☄️ Lanjut sampai meledak...'; stat.style.color = 'var(--lose-red)'; }
 
-    /* Crashhead = selalu lose, biarkan _tick() jalankan crash normal */
-    /* Override: paksa crash segera kalau sudah cashout path */
-    _autoCrash = false;
+    /* FIX BUG 8: paksa crash segera di tick berikutnya
+       dengan set _crashAt ke multiplier saat ini + sedikit delay visual (0.10) */
+    _autoCrash = false;                          // FIX BUG 9: batalkan auto-cashout WIN
+    _crashAt   = _multiplier + 0.10;            // crash dalam ~3-4 tick
   }
 
   /* ────────────────────────────────────
@@ -345,15 +352,33 @@ const Spaceman = (() => {
     const cashoutBtn = document.getElementById('smCashoutBtn');
     if (cashoutBtn) { cashoutBtn.textContent = '✓ Cashed Out!'; cashoutBtn.classList.add('success'); }
 
+    /* ── Hitung prize dengan pajak 5% ──
+       betAmount dalam satuan bet (1 bet = 1k)
+       prize = betAmount * multiplier * (1 - 0.05)
+       kembalikan dalam Rupiah agar konsisten dengan game lain */
+    const TAX        = 0.05;
+    const betAmount  = _gacha.betAmount || (_gacha.money / 1000); // fallback ke money/1k
+    const grossPrize = betAmount * _multiplier * 1000;            // dalam Rp
+    const netPrize   = Math.floor(grossPrize * (1 - TAX));        // potong pajak, bulatkan
+
+    /* Update HUD multiplier untuk tampilkan info pajak */
+    const val = document.getElementById('smMultiVal');
+    if (val) {
+      val.textContent = `${_multiplier.toFixed(2)}× (−5%)`;
+    }
+
     const stat = document.getElementById('smStatus');
-    if (stat) { stat.textContent = '✅ Cashout berhasil!'; stat.style.color = 'var(--win-green)'; }
+    if (stat) {
+      stat.textContent = `✅ Cashout ${_multiplier.toFixed(2)}× − pajak 5%`;
+      stat.style.color = 'var(--win-green)';
+    }
 
     const hud = document.getElementById('smHud');
     if (hud) hud.classList.add('win');
 
     setTimeout(() => {
       cancelAnimationFrame(_rafId);
-      _callback(true, _gacha.money);
+      _callback(true, netPrize);   // kirim netPrize (sudah kena pajak)
     }, 1500);
   }
 
@@ -393,7 +418,7 @@ const Spaceman = (() => {
      DRAW LOOP
   ──────────────────────────────────── */
   function _drawLoop() {
-    if (_phase === 'done') return;
+    if (_phase === 'done' || isGameDone()) return;
     _drawScene(true);
     _rafId = requestAnimationFrame(_drawLoop);
   }

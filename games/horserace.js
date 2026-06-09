@@ -28,6 +28,7 @@ const HorseRace = (() => {
   let _phase       = 'pick';  // pick | ready | racing | done
   let _picked      = -1;      // horse id user picked
   let _winnerIdx   = -1;      // predetermined winner
+  let _isWin       = false;   // FIX BUG 3: simpan hasil di sini, bukan baca _gacha.result
   let _rafId       = null;
   let _cameraX     = 0;       // world scroll offset
   let _targetCamX  = 0;
@@ -58,6 +59,7 @@ const HorseRace = (() => {
     _phase      = 'pick';
     _picked     = -1;
     _winnerIdx  = -1;
+    _isWin      = false;   // FIX BUG 3
     _cameraX    = 0;
     _targetCamX = 0;
     _finished   = false;
@@ -217,9 +219,12 @@ const HorseRace = (() => {
     _picked = id;
     _phase  = 'ready';
 
-    /* Determine winner */
-    const isWin = _gacha.result === 'win';
-    if (isWin) {
+    /* FIX BUG 3: Tentukan menang/kalah sekarang dengan random chance,
+       BUKAN dari _gacha.result yang belum di-set saat game berjalan */
+    const chance = _gacha.isPremium ? 0.40 : 0.30;
+    _isWin = Math.random() < chance;
+
+    if (_isWin) {
       _winnerIdx = id;
     } else {
       /* Pick a random loser (not the user's pick) */
@@ -259,9 +264,10 @@ const HorseRace = (() => {
     const stat = document.getElementById('hrStatus');
     if (stat) stat.textContent = '🏇 Balapan dimulai!';
 
-    /* Assign speeds — winner gets slight edge mixed with randomness */
+    /* FIX BUG 5: gunakan formula yang sama dengan _draw() dan _drawFinishLine()
+       yaitu W * 0.08 + W * 3.5 — tanpa _cameraX agar konsisten */
     const W = _canvas._lw || 380;
-    const finishX = W * FINISH_X_PCT + _cameraX + W * 2.5; // world finish line
+    const finishX = W * 0.08 + W * 3.5; // world finish line (sinkron dengan _draw)
 
     _horses.forEach(h => {
       const isWinner = h.id === _winnerIdx;
@@ -716,7 +722,9 @@ const HorseRace = (() => {
     _finished = true;
     _phase    = 'done';
 
-    const isWin  = _gacha.result === 'win';
+    /* FIX BUG 4: gunakan _isWin yang sudah ditentukan di _pickHorse,
+       bukan _gacha.result yang belum tentu ter-set */
+    const isWin  = _isWin;
     const winner = HORSES[_winnerIdx];
 
     const stat = document.getElementById('hrStatus');
