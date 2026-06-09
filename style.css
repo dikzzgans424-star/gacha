@@ -1605,3 +1605,258 @@ body::after {
   .hr-horse-btn { padding: 8px 9px; font-size: 10px; }
   .hr-horse-btns { gap: 5px; }
 }
+
+/* ══════════════════════════════════════
+   BET MODAL
+══════════════════════════════════════ */
+
+.bet-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.bet-modal-overlay.show {
+  opacity: 1;
+}
+
+.bet-modal-overlay.show .bet-modal-box {
+  transform: translateY(0) scale(1);
+}
+
+.bet-modal-box {
+  background: linear-gradient(160deg, #1a1a24, #111118);
+  border: 1px solid rgba(212,175,90,0.25);
+  border-radius: 20px;
+  padding: 28px 24px 24px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+  transform: translateY(24px) scale(0.97);
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+
+/* Header */
+.bet-modal-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+.bet-modal-game {
+  font-family: 'DM Serif Display', serif;
+  font-size: 22px;
+  color: var(--text-primary);
+  letter-spacing: 0.3px;
+}
+
+.bet-modal-multi {
+  font-size: 12px;
+  color: var(--gold);
+  background: rgba(212,175,90,0.1);
+  border: 1px solid rgba(212,175,90,0.2);
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+}
+
+.bet-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(255,255,255,0.06);
+  border: none;
+  color: var(--text-muted);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+}
+
+.bet-modal-close:hover {
+  background: rgba(255,255,255,0.12);
+  color: var(--text-primary);
+}
+
+/* Saldo */
+.bet-modal-balance {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 18px;
+}
+
+.bet-modal-balance strong {
+  color: var(--text-primary);
+}
+
+/* Input */
+.bet-modal-label {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.bet-modal-input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.bet-modal-input-row input {
+  flex: 1;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 600;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.bet-modal-input-row input:focus {
+  border-color: rgba(212,175,90,0.5);
+  background: rgba(212,175,90,0.05);
+}
+
+.bet-modal-max {
+  background: rgba(212,175,90,0.12);
+  border: 1px solid rgba(212,175,90,0.3);
+  color: var(--gold);
+  border-radius: 12px;
+  padding: 0 16px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.bet-modal-max:hover {
+  background: rgba(212,175,90,0.22);
+}
+
+/* Preview */
+.bet-modal-preview {
+  min-height: 36px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  transition: all 0.2s;
+}
+
+.bet-modal-preview.active {
+  background: rgba(255,255,255,0.04);
+  color: var(--text-secondary);
+}
+
+.bet-modal-preview.warn {
+  background: rgba(220,53,69,0.1);
+  color: #ff6b6b;
+}
+
+.bet-modal-preview .gold {
+  color: var(--gold);
+}
+
+/* Quick pick */
+.bet-modal-quick-label {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.bet-modal-quick-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.bet-modal-quick-btn {
+  flex: 1;
+  min-width: 48px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text-secondary);
+  border-radius: 10px;
+  padding: 8px 4px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.bet-modal-quick-btn:hover {
+  background: rgba(212,175,90,0.1);
+  border-color: rgba(212,175,90,0.3);
+  color: var(--gold);
+}
+
+/* Tombol mulai */
+.bet-modal-start {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  border: none;
+  border-radius: 14px;
+  color: #0c0c0e;
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 20px rgba(212,175,90,0.3);
+}
+
+.bet-modal-start:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 28px rgba(212,175,90,0.45);
+}
+
+.bet-modal-start:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.bet-modal-start:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+@media (max-width: 420px) {
+  .bet-modal-box { padding: 22px 18px 20px; }
+  .bet-modal-game { font-size: 19px; }
+  .bet-modal-quick-btn { font-size: 12px; padding: 7px 4px; }
+}
