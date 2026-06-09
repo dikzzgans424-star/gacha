@@ -17,6 +17,7 @@ const GAMES = {
   roulette: () => Roulette,
   coinflip: () => CoinFlip,
   spaceman: () => Spaceman,
+  horserace: () => HorseRace,
 };
 
 /* ────────────────────────────────────────
@@ -98,6 +99,7 @@ function showGachaInfo(gacha) {
   slot3x3:  '🎰 Slot 3×3',
   roulette: '🎡 Roulette',
   coinflip: '🪙 Coin Flip',
+  horserace: '🏇 Horse Race',
   spaceman: '🚀 Spaceman',
 }[gacha.type] || '🎰 Slot';
   const badge = gacha.isPremium
