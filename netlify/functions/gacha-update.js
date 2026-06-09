@@ -19,7 +19,7 @@ export async function handler(event) {
     }
 
     const res = await fetch(
-      "https://api.github.com/repos/dikzzgans424-star/slot/contents/gacha.json",
+      "https://api.github.com/repos/dikzzgans424-star/dbslot/contents/dbdata.json",
       {
         method: "PUT",
         headers: {
