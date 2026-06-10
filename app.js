@@ -348,16 +348,31 @@ function _launchGame() {
     ? betRp
     : betToRp(_currentBet * GAME_MULTIPLIER[_selectedGame]);
 
+  /* Tentukan hasil win/lose di sini (satu sumber kebenaran),
+     lalu kirim ke game module via gameObj.result */
+  const _winChance = (currentToken.isPremium ? 0.45 : 0.35);
+  const _isWin     = Math.random() < _winChance;
+
   const gameObj = {
     token:     currentToken.token,
     type:      _selectedGame,
     money:     prizeRp,
     betAmount: _currentBet,
     isPremium: currentToken.isPremium || false,
+    result:    _isWin ? 'win' : 'lose',   /* ← FIX Bug #2 & #4 */
   };
 
-  const gameModule = (GAMES[_selectedGame] ?? GAMES['slot3x3'])();
-  gameModule.init(gameObj, onGameResult);
+  try {
+    const gameModule = (GAMES[_selectedGame] ?? GAMES['slot3x3'])();
+    gameModule.init(gameObj, onGameResult);
+  } catch (err) {
+    /* FIX Bug #7: jangan biarkan _gameActive stuck true jika init() error */
+    _gameActive = false;
+    console.error('Game init error:', err);
+    setStatus('❌ Gagal memuat game: ' + err.message);
+    if (dashboard) dashboard.style.display = '';
+    return;
+  }
 
   setStatus(`🎮 ${GAME_LABELS[_selectedGame]} — bet ${_currentBet} bet`, true);
 }
