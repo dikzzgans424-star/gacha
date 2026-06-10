@@ -1,12 +1,5 @@
 /* ══════════════════════════════════════
    CORE — Token system, game picker, balance
-   
-   ALUR:
-   1. User input token (dari bot WA)
-   2. Cek token → tampil saldo & pilih game
-   3. User pilih game + jumlah bet
-   4. Main → hasil update saldo token
-   5. User bisa main lagi atau withdraw
 ══════════════════════════════════════ */
 
 /* ── DOM refs ── */
@@ -14,20 +7,18 @@ const statusText = document.getElementById('statusText');
 const statusDot  = document.getElementById('statusDot');
 
 /* ── State ── */
-let currentFile  = null;   // raw file + sha dari GitHub
-let currentToken = null;   // object token yang sedang aktif
-let _gameActive  = false;  // ada game yang sedang berjalan
+let currentFile  = null;
+let currentToken = null;
+let _gameActive  = false;
 
-/* ── Multiplier per game (1 bet = 1k) ── */
+/* ── Multiplier per game ── */
 const GAME_MULTIPLIER = {
   slot3x3:   2,
-  roulette:  2,
+  roulette:  2,     /* roulette hitung prize di dalam roulette.js sendiri */
   coinflip:  2,
   horserace: 2,
-  spaceman:  null,  // dynamic, kena pajak 5%
+  spaceman:  null,  /* dynamic, kena pajak 5% */
 };
-
-const SPACEMAN_TAX = 0.05;  // 5% pajak
 
 const GAME_LABELS = {
   slot3x3:   '🎰 Slot 3×3',
@@ -37,7 +28,6 @@ const GAME_LABELS = {
   spaceman:  '🚀 Spaceman',
 };
 
-/* ── Game registry ── */
 const GAMES = {
   slot3x3:   () => Slot3x3,
   roulette:  () => Roulette,
@@ -65,10 +55,7 @@ function formatRp(amount) {
   return 'Rp ' + Number(amount).toLocaleString('id-ID');
 }
 
-/* bet dalam satuan 1k → rupiah */
-function betToRp(bet) {
-  return bet * 1000;
-}
+function betToRp(bet) { return bet * 1000; }
 
 /* ────────────────────────────────────────
    API — GitHub via Netlify Functions
@@ -116,21 +103,9 @@ async function startSpin() {
       t => t.token.toUpperCase() === token
     );
 
-    if (!currentToken) {
-      setStatus('❌ Token tidak ditemukan');
-      btn.disabled = false;
-      return;
-    }
-    if (currentToken.status === 'withdrawn') {
-      setStatus('❌ Token sudah di-withdraw');
-      btn.disabled = false;
-      return;
-    }
-    if (currentToken.balance <= 0) {
-      setStatus('❌ Saldo token habis');
-      btn.disabled = false;
-      return;
-    }
+    if (!currentToken) { setStatus('❌ Token tidak ditemukan'); btn.disabled = false; return; }
+    if (currentToken.status === 'withdrawn') { setStatus('❌ Token sudah di-withdraw'); btn.disabled = false; return; }
+    if (currentToken.balance <= 0) { setStatus('❌ Saldo token habis'); btn.disabled = false; return; }
 
     setStatus('✅ Token valid — pilih game!');
     showTokenDashboard();
@@ -147,7 +122,6 @@ async function startSpin() {
    STEP 2 — DASHBOARD TOKEN
 ──────────────────────────────────────── */
 function showTokenDashboard() {
-  /* Hapus dashboard lama kalau ada */
   const old = document.getElementById('tokenDashboard');
   if (old) old.remove();
   hideGame();
@@ -165,13 +139,19 @@ function showTokenDashboard() {
     </div>
   `).join('') : `<div class="token-history-empty">Belum ada riwayat</div>`;
 
+  /* Label multiplier roulette tampilkan "2× / hijau 2.5×" */
+  function gameMultiLabel(key) {
+    if (key === 'spaceman')  return 'dynamic −5%';
+    if (key === 'roulette')  return '2× / hijau 2.5×';
+    return GAME_MULTIPLIER[key] + '×';
+  }
+
   dashboard.innerHTML = `
     <div class="info-card-header">
       <span class="info-card-title">💳 Token Aktif</span>
       <span class="info-card-id">${currentToken.token}</span>
     </div>
 
-    <!-- Saldo besar -->
     <div class="token-balance-wrap">
       <div class="token-balance-label">SALDO TOKEN</div>
       <div class="token-balance-value" id="tokenBalanceDisplay">
@@ -180,7 +160,6 @@ function showTokenDashboard() {
       <div class="token-balance-rp">${formatRp(betToRp(currentToken.balance))}</div>
     </div>
 
-    <!-- Pilih game -->
     <div class="token-game-section">
       <div class="token-section-label">PILIH GAME</div>
       <div class="token-game-grid">
@@ -188,23 +167,17 @@ function showTokenDashboard() {
           <button class="token-game-btn" id="gameBtn_${key}"
                   onclick="selectGame('${key}')">
             ${label}
-            <span class="token-game-multi">${
-              key === 'spaceman'
-                ? 'dynamic −5%'
-                : GAME_MULTIPLIER[key] + 'x'
-            }</span>
+            <span class="token-game-multi">${gameMultiLabel(key)}</span>
           </button>
         `).join('')}
       </div>
     </div>
 
-    <!-- Riwayat 5 terakhir -->
     <div class="token-history-section">
       <div class="token-section-label">RIWAYAT TERAKHIR</div>
       ${historyHTML}
     </div>
 
-    <!-- Withdraw -->
     <button class="token-withdraw-btn" onclick="confirmWithdraw()">
       💸 &nbsp;Withdraw Saldo ke WA
     </button>
@@ -214,7 +187,6 @@ function showTokenDashboard() {
   requestAnimationFrame(() => dashboard.classList.add('show'));
 }
 
-/* ── State game picker ── */
 let _selectedGame = null;
 
 function selectGame(game) {
@@ -226,13 +198,16 @@ function selectGame(game) {
    BET MODAL
 ──────────────────────────────────────── */
 function openBetModal(game) {
-  /* Hapus modal lama kalau ada */
   const old = document.getElementById('betModal');
   if (old) old.remove();
 
   const label      = GAME_LABELS[game];
   const isSpaceman = game === 'spaceman';
-  const multiText  = isSpaceman ? 'Dynamic − 5% pajak' : `${GAME_MULTIPLIER[game]}× kemenangan`;
+  const isRoulette = game === 'roulette';
+  let multiText;
+  if (isSpaceman)       multiText = 'Dynamic − 5% pajak';
+  else if (isRoulette)  multiText = '2× menang · hijau 2.5× (house)';
+  else                  multiText = `${GAME_MULTIPLIER[game]}× kemenangan`;
 
   const modal = document.createElement('div');
   modal.id        = 'betModal';
@@ -240,20 +215,17 @@ function openBetModal(game) {
   modal.innerHTML = `
     <div class="bet-modal-box">
 
-      <!-- Header -->
       <div class="bet-modal-header">
         <div class="bet-modal-game">${label}</div>
         <div class="bet-modal-multi">${multiText}</div>
         <button class="bet-modal-close" onclick="closeBetModal()">✕</button>
       </div>
 
-      <!-- Saldo info -->
       <div class="bet-modal-balance">
         Saldo: <strong>${currentToken.balance} bet</strong>
         <span>(${formatRp(betToRp(currentToken.balance))})</span>
       </div>
 
-      <!-- Input bet -->
       <div class="bet-modal-label">Jumlah Bet</div>
       <div class="bet-modal-input-row">
         <input id="betModalInput" type="number"
@@ -264,10 +236,8 @@ function openBetModal(game) {
         <button class="bet-modal-max" onclick="setModalMaxBet()">MAX</button>
       </div>
 
-      <!-- Preview prize -->
       <div class="bet-modal-preview" id="betModalPreview"></div>
 
-      <!-- Quick pick -->
       <div class="bet-modal-quick-label">Pilih cepat</div>
       <div class="bet-modal-quick-row">
         ${[10, 25, 50, 100].filter(v => v <= currentToken.balance).map(v => `
@@ -276,7 +246,6 @@ function openBetModal(game) {
         <button class="bet-modal-quick-btn" onclick="setModalBet(Math.floor(currentToken.balance/2))">½</button>
       </div>
 
-      <!-- Mulai -->
       <button class="bet-modal-start" id="betModalStart"
               onclick="submitBetModal()" disabled>
         ▶ &nbsp;Mulai ${label}
@@ -286,15 +255,8 @@ function openBetModal(game) {
   `;
 
   document.body.appendChild(modal);
-
-  /* Animasi masuk */
   requestAnimationFrame(() => modal.classList.add('show'));
-
-  /* Auto fokus input */
-  setTimeout(() => {
-    const inp = document.getElementById('betModalInput');
-    if (inp) inp.focus();
-  }, 150);
+  setTimeout(() => { const inp = document.getElementById('betModalInput'); if (inp) inp.focus(); }, 150);
 }
 
 function closeBetModal() {
@@ -311,14 +273,12 @@ function setModalBet(amount) {
   onModalBetInput();
 }
 
-function setModalMaxBet() {
-  setModalBet(currentToken.balance);
-}
+function setModalMaxBet() { setModalBet(currentToken.balance); }
 
 function onModalBetInput() {
-  const inp = document.getElementById('betModalInput');
-  const val = parseInt(inp?.value) || 0;
-  const preview = document.getElementById('betModalPreview');
+  const inp      = document.getElementById('betModalInput');
+  const val      = parseInt(inp?.value) || 0;
+  const preview  = document.getElementById('betModalPreview');
   const startBtn = document.getElementById('betModalStart');
 
   const valid = val >= 1 && val <= currentToken.balance;
@@ -327,20 +287,24 @@ function onModalBetInput() {
   if (!preview) return;
 
   if (!val || val <= 0) {
-    preview.textContent = '';
-    preview.className   = 'bet-modal-preview';
-    return;
+    preview.textContent = ''; preview.className = 'bet-modal-preview'; return;
   }
   if (val > currentToken.balance) {
-    preview.textContent = '⚠ Melebihi saldo token';
-    preview.className   = 'bet-modal-preview warn';
-    return;
+    preview.textContent = '⚠ Melebihi saldo token'; preview.className = 'bet-modal-preview warn'; return;
   }
 
   if (_selectedGame === 'spaceman') {
     preview.innerHTML = `
       Taruhan <strong>${val} bet</strong> (${formatRp(betToRp(val))})
       <br>Menang: <em>tergantung multiplier − 5% pajak</em>
+    `;
+  } else if (_selectedGame === 'roulette') {
+    const prize = val * 2;
+    preview.innerHTML = `
+      Taruhan <strong>${val} bet</strong> (${formatRp(betToRp(val))})
+      &nbsp;→&nbsp;
+      Menang <strong class="gold">${prize} bet</strong> (${formatRp(betToRp(prize))})
+      <br><small style="color:var(--text-muted)">Hijau = house wins (2.5× tidak bisa dibet)</small>
     `;
   } else {
     const prize = val * GAME_MULTIPLIER[_selectedGame];
@@ -356,22 +320,19 @@ function onModalBetInput() {
 function submitBetModal() {
   const inp = document.getElementById('betModalInput');
   const val = parseInt(inp?.value) || 0;
-
   if (val < 1 || val > currentToken.balance) return;
-
   closeBetModal();
   _currentBet = val;
   _launchGame();
 }
 
 /* ────────────────────────────────────────
-   STEP 3 — LAUNCH GAME (dipanggil dari submitBetModal)
+   STEP 3 — LAUNCH GAME
 ──────────────────────────────────────── */
 let _currentBet = 0;
 
 function _launchGame() {
   if (_gameActive || !_selectedGame || !currentToken) return;
-
   if (_currentBet < 1 || _currentBet > currentToken.balance) {
     setStatus('⚠ Jumlah bet tidak valid.');
     return;
@@ -379,11 +340,9 @@ function _launchGame() {
 
   _gameActive = true;
 
-  /* Sembunyikan dashboard */
   const dashboard = document.getElementById('tokenDashboard');
   if (dashboard) dashboard.style.display = 'none';
 
-  /* Buat gacha object yang kompatibel dengan game modules */
   const betRp   = betToRp(_currentBet);
   const prizeRp = _selectedGame === 'spaceman'
     ? betRp
@@ -397,8 +356,7 @@ function _launchGame() {
     isPremium: currentToken.isPremium || false,
   };
 
-  const getGame    = GAMES[_selectedGame] ?? GAMES['slot3x3'];
-  const gameModule = getGame();
+  const gameModule = (GAMES[_selectedGame] ?? GAMES['slot3x3'])();
   gameModule.init(gameObj, onGameResult);
 
   setStatus(`🎮 ${GAME_LABELS[_selectedGame]} — bet ${_currentBet} bet`, true);
@@ -411,32 +369,30 @@ function hideGame() {
 
 /* ────────────────────────────────────────
    RESULT CALLBACK
-   isWin     : boolean
-   moneyWon  : Rp yang didapat (dari game module)
-               untuk spaceman = bet * multiplier_cashout * (1-tax)
-               untuk game lain = betToRp(_currentBet * multiplier)
+   moneyWon : Rp yang didapat dari game module
+              roulette : betAmount * 2 * 1000  (dari roulette.js)
+              spaceman : bet * multiplier * 0.95 (dari spaceman.js)
+              lainnya  : betAmount * GAME_MULTIPLIER * 1000
 ──────────────────────────────────────── */
 async function onGameResult(isWin, moneyWon) {
   _gameActive = false;
 
-  /* Hitung perubahan saldo dalam satuan bet */
   let balanceChange = 0;
   if (isWin) {
     if (_selectedGame === 'spaceman') {
-      /* moneyWon sudah kena pajak dari spaceman.js */
       const wonBet = Math.floor(moneyWon / 1000);
-      balanceChange = wonBet - _currentBet;   // net gain
+      balanceChange = wonBet - _currentBet;
     } else {
-      const prize = _currentBet * GAME_MULTIPLIER[_selectedGame];
-      balanceChange = prize - _currentBet;    // net gain = prize - taruhan
+      /* roulette & game lain — moneyWon = prize dalam Rp */
+      const prizeBet = Math.floor(moneyWon / 1000);
+      balanceChange  = prizeBet - _currentBet;
     }
   } else {
-    balanceChange = -_currentBet;             // kalah = kurang bet
+    balanceChange = -_currentBet;
   }
 
   const newBalance = currentToken.balance + balanceChange;
 
-  /* Simpan ke riwayat */
   const histEntry = {
     game:   _selectedGame,
     bet:    _currentBet,
@@ -445,12 +401,10 @@ async function onGameResult(isWin, moneyWon) {
     at:     Date.now(),
   };
 
-  /* Update currentToken lokal dulu */
   currentToken.balance = newBalance;
   if (!currentToken.history) currentToken.history = [];
   currentToken.history.push(histEntry);
 
-  /* Simpan ke GitHub */
   setStatus('💾 Menyimpan hasil...', true);
   let saveOk = false;
   try {
@@ -473,18 +427,18 @@ async function onGameResult(isWin, moneyWon) {
 }
 
 /* ────────────────────────────────────────
-   RESULT PANEL — lanjut main / withdraw
+   RESULT PANEL
 ──────────────────────────────────────── */
 function showResultInline(isWin, moneyWon, balanceChange, newBalance, saveOk) {
-  const area       = document.createElement('div');
-  area.id          = 'gameArea';
-  area.className   = 'game-area';
+  const area      = document.createElement('div');
+  area.id         = 'gameArea';
+  area.className  = 'game-area';
 
-  const panelClass  = isWin ? 'win-panel'  : 'lose-panel';
-  const emoji       = isWin ? '🎉'         : '💀';
-  const title       = isWin ? 'Menang!'    : 'Belum Beruntung';
-  const changeSign  = balanceChange >= 0 ? '+' : '−';
-  const changeAbs   = Math.abs(balanceChange);
+  const panelClass = isWin ? 'win-panel'  : 'lose-panel';
+  const emoji      = isWin ? '🎉'         : '💀';
+  const title      = isWin ? 'Menang!'    : 'Belum Beruntung';
+  const changeSign = balanceChange >= 0 ? '+' : '−';
+  const changeAbs  = Math.abs(balanceChange);
 
   const saveNote = saveOk
     ? `<div class="result-save-ok">✓ Hasil tersimpan</div>`
@@ -496,13 +450,11 @@ function showResultInline(isWin, moneyWon, balanceChange, newBalance, saveOk) {
       <div class="result-badge ${isWin ? 'win' : 'lose'}">${isWin ? '● WIN' : '● LOSE'}</div>
       <div class="result-title">${title}</div>
 
-      <!-- Perubahan saldo -->
       <div class="result-balance-change ${isWin ? 'win' : 'lose'}">
         ${changeSign} ${changeAbs} bet
         <span class="result-balance-change-rp">(${formatRp(betToRp(changeAbs))})</span>
       </div>
 
-      <!-- Saldo baru -->
       <div class="result-balance-new">
         Saldo token sekarang:
         <strong>${newBalance} bet</strong>
@@ -516,15 +468,11 @@ function showResultInline(isWin, moneyWon, balanceChange, newBalance, saveOk) {
       <div class="result-meta">${saveNote}</div>
       <div class="result-divider"></div>
 
-      <!-- Aksi -->
       <div class="result-action-row">
         ${newBalance > 0
           ? `<button class="start-game-btn" onclick="continuePlaying()">🎮 &nbsp;Main Lagi</button>`
           : `<div class="token-empty-msg">Saldo token habis!</div>`
         }
-        <button class="token-withdraw-btn-sm" onclick="confirmWithdraw()">
-          💸 Withdraw
-        </button>
       </div>
     </div>
   `;
@@ -532,7 +480,6 @@ function showResultInline(isWin, moneyWon, balanceChange, newBalance, saveOk) {
   document.querySelector('.glass-card').insertAdjacentElement('afterend', area);
 }
 
-/* Kembali ke dashboard untuk main lagi */
 function continuePlaying() {
   hideGame();
   showTokenDashboard();
@@ -547,13 +494,10 @@ function confirmWithdraw() {
     return;
   }
 
-  const area = document.getElementById('tokenDashboard') || document.getElementById('gameArea');
-
-  /* Tampilkan konfirmasi sederhana */
-  const confirm = document.createElement('div');
-  confirm.id        = 'withdrawConfirm';
-  confirm.className = 'withdraw-confirm-card';
-  confirm.innerHTML = `
+  const confirm      = document.createElement('div');
+  confirm.id         = 'withdrawConfirm';
+  confirm.className  = 'withdraw-confirm-card';
+  confirm.innerHTML  = `
     <div class="withdraw-confirm-inner">
       <div class="withdraw-confirm-title">💸 Konfirmasi Withdraw</div>
       <div class="withdraw-confirm-amount">
@@ -602,20 +546,17 @@ async function doWithdraw() {
     currentToken.status  = 'withdrawn';
     currentToken.balance = 0;
 
-    setStatus('✅ Withdraw berhasil! Cek WA kamu.', true);
+    setStatus('✅ Withdraw berhasil! Ketik .wths di bot WA.', true);
 
-    /* Sembunyikan semua area game */
     hideGame();
     const dashboard = document.getElementById('tokenDashboard');
     if (dashboard) dashboard.remove();
 
-    /* Lock input */
     const spinBtn    = document.getElementById('spinBtn');
     const gachaInput = document.getElementById('gachaId');
     if (spinBtn)    { spinBtn.disabled = true; spinBtn.textContent = '🔒'; }
     if (gachaInput) { gachaInput.disabled = true; }
 
-    /* Tampilkan pesan selesai */
     showWithdrawDone();
 
   } catch (err) {
@@ -625,16 +566,16 @@ async function doWithdraw() {
 }
 
 function showWithdrawDone() {
-  const area       = document.createElement('div');
-  area.id          = 'gameArea';
-  area.className   = 'game-area';
-  area.innerHTML   = `
+  const area     = document.createElement('div');
+  area.id        = 'gameArea';
+  area.className = 'game-area';
+  area.innerHTML = `
     <div class="result-panel win-panel">
       <span class="result-emoji">💸</span>
       <div class="result-title">Withdraw Berhasil!</div>
       <div class="result-desc">
         Saldo kamu sedang diproses.<br>
-        Ketik <code>.ceksaldo</code> di bot WA untuk konfirmasi.
+        Ketik <code>.wths ${currentToken?.token}</code> di bot WA untuk cairkan.
       </div>
       <div class="result-divider"></div>
       <div class="result-save-ok">✓ Token ${currentToken?.token} sudah hangus</div>
