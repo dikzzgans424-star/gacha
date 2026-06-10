@@ -1860,3 +1860,332 @@ body::after {
   .bet-modal-game { font-size: 19px; }
   .bet-modal-quick-btn { font-size: 12px; padding: 7px 4px; }
 }
+
+/* ══════════════════════════════════════
+   TOKEN DASHBOARD
+══════════════════════════════════════ */
+
+#tokenDashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: tdFadeIn .35s ease both;
+}
+
+@keyframes tdFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Saldo ── */
+.token-balance-wrap {
+  background: linear-gradient(140deg, rgba(212,175,90,0.10) 0%, rgba(212,175,90,0.03) 100%);
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-lg);
+  padding: 22px 20px 18px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.token-balance-wrap::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212,175,90,0.5), transparent);
+}
+
+.token-balance-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  margin-bottom: 10px;
+}
+
+.token-balance-value {
+  font-family: 'DM Serif Display', serif;
+  font-size: 52px;
+  font-weight: 400;
+  color: var(--gold-light);
+  line-height: 1;
+  letter-spacing: 1px;
+  text-shadow: 0 0 30px rgba(212,175,90,0.3);
+}
+
+.token-balance-unit {
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gold-dim);
+  margin-left: 6px;
+  letter-spacing: 2px;
+  vertical-align: middle;
+}
+
+.token-balance-rp {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 8px;
+  letter-spacing: 1px;
+}
+
+/* ── Section wrapper ── */
+.token-game-section,
+.token-history-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.token-game-section::before,
+.token-history-section::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-glow), transparent);
+}
+
+.token-section-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+/* ── Game grid ── */
+.token-game-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.token-game-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-md);
+  padding: 13px 8px;
+  cursor: pointer;
+  transition: background .18s, border-color .18s, transform .12s, box-shadow .18s;
+  color: var(--text-secondary);
+  font-family: 'Syne', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.token-game-btn:hover {
+  background: rgba(212,175,90,0.08);
+  border-color: rgba(212,175,90,0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(212,175,90,0.1);
+  color: var(--text-primary);
+}
+
+.token-game-btn.active {
+  background: rgba(212,175,90,0.13);
+  border-color: var(--gold);
+  color: var(--gold-light);
+  box-shadow: 0 4px 20px rgba(212,175,90,0.18);
+}
+
+.token-game-multi {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--gold-dim);
+  letter-spacing: 1px;
+  transition: color .18s;
+}
+
+.token-game-btn.active .token-game-multi,
+.token-game-btn:hover  .token-game-multi {
+  color: var(--gold);
+}
+
+/* ── History rows ── */
+.token-history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  transition: background .15s;
+}
+
+.token-history-row:last-child { margin-bottom: 0; }
+
+.token-history-row.win {
+  background: rgba(76,175,130,0.07);
+  border-color: rgba(76,175,130,0.18);
+}
+
+.token-history-row.lose {
+  background: rgba(207,92,92,0.06);
+  border-color: rgba(207,92,92,0.15);
+}
+
+.token-history-game {
+  color: var(--text-secondary);
+  flex: 1;
+  font-size: 12px;
+}
+
+.token-history-bet {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin: 0 10px;
+}
+
+.token-history-result {
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+
+.token-history-row.win  .token-history-result { color: var(--win-green); }
+.token-history-row.lose .token-history-result { color: var(--lose-red); }
+
+.token-history-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 10px 0 4px;
+  letter-spacing: 0.5px;
+}
+
+/* ── Withdraw button ── */
+.token-withdraw-btn {
+  width: 100%;
+  padding: 15px;
+  background: transparent;
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-md);
+  color: var(--gold);
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background .2s, border-color .2s, transform .12s, box-shadow .2s;
+  margin-top: 4px;
+}
+
+.token-withdraw-btn:hover {
+  background: rgba(212,175,90,0.08);
+  border-color: var(--gold);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(212,175,90,0.15);
+}
+
+.token-withdraw-btn:active {
+  transform: scale(0.98);
+}
+
+/* ── Withdraw confirm modal ── */
+.withdraw-confirm-box {
+  background: linear-gradient(160deg, #1a1a24, #111118);
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-xl);
+  padding: 28px 24px 24px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  animation: tdFadeIn .3s ease both;
+}
+
+.withdraw-confirm-box::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212,175,90,0.5), transparent);
+}
+
+.withdraw-confirm-title {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  margin-bottom: 14px;
+}
+
+.withdraw-confirm-amount {
+  font-family: 'DM Serif Display', serif;
+  font-size: 36px;
+  color: var(--gold-light);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.withdraw-confirm-rp {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 22px;
+}
+
+.withdraw-confirm-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.withdraw-confirm-yes {
+  padding: 14px;
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--bg-base);
+  font-family: 'Syne', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s;
+  box-shadow: 0 4px 16px rgba(212,175,90,0.25);
+}
+
+.withdraw-confirm-yes:hover  { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(212,175,90,0.4); }
+.withdraw-confirm-yes:active { transform: scale(0.97); }
+
+.withdraw-confirm-no {
+  padding: 14px;
+  background: transparent;
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-family: 'Syne', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+
+.withdraw-confirm-no:hover { background: rgba(255,255,255,0.05); border-color: var(--border-mid); }
+
+@media (max-width: 420px) {
+  .token-balance-value { font-size: 42px; }
+  .token-game-btn { padding: 11px 6px; font-size: 11px; }
+}
