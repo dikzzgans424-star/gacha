@@ -34,6 +34,7 @@ const Roulette = (() => {
   let _bet      = null;
   let _spinning = false;
   let _raf      = null;
+  let _done     = false;
 
   /* ── Render HTML ── */
   function render() {
@@ -308,6 +309,7 @@ const Roulette = (() => {
     _onResult = onResult;
     _bet      = null;
     _spinning = false;
+    _done     = false;
     if (_raf) { cancelAnimationFrame(_raf); _raf = null; }
 
     const area = document.createElement('div');
@@ -344,7 +346,7 @@ const Roulette = (() => {
   }
 
   async function spin() {
-    if (window._gameFinished || _spinning || !_bet) return;
+    if (_done || _spinning || !_bet) return;
     const spinBtn = document.getElementById('spinGameBtn');
     if (!spinBtn || spinBtn.disabled) return;
 
@@ -378,7 +380,7 @@ const Roulette = (() => {
     if (lbl) { lbl.textContent = '🎡 Spinning...'; lbl.className = 'rch-label rch-spinning'; }
 
     await runSpin(finalSlotIdx);
-    if (window._gameFinished) return;
+    if (_done) return;
 
     const colorEmoji = resultColor === 'red' ? '🔴' : resultColor === 'black' ? '⚫' : '🟢';
     if (lbl) {
@@ -388,7 +390,8 @@ const Roulette = (() => {
     window.setStatus(isWin ? '🏆 MENANG!' : '💀 Kalah...', isWin);
 
     await new Promise(r => setTimeout(r, isWin ? 1200 : 800));
-    if (window._gameFinished) return;
+    if (_done) return;
+    _done = true;
 
     /* ── Hitung prize berdasarkan warna hasil ──
        Merah/Hitam menang = 2x bet

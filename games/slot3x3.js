@@ -40,11 +40,9 @@ const Slot3x3 = (() => {
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
-  /* FIX BUG 2: _gameFinished di app.js dideklarasikan dengan `let`,
-     sehingga tidak ter-expose ke window. Gunakan helper ini di semua cek. */
-  function isGameDone() {
-    return typeof _gameFinished !== 'undefined' ? _gameFinished : !!window._gameFinished;
-  }
+  /* Guard: apakah game sudah selesai (callback sudah dipanggil) */
+  let _done = false;
+  function isGameDone() { return _done; }
 
   /*
    * buildReel — isi reel dengan:
@@ -143,6 +141,7 @@ const Slot3x3 = (() => {
   function init(gacha, onResult) {
     _gacha    = gacha;
     _onResult = onResult;
+    _done     = false;
 
     const area = document.createElement('div');
     area.id        = 'gameArea';
@@ -184,9 +183,8 @@ const Slot3x3 = (() => {
     btn.disabled = true;
     window.setStatus('🎰 Spinning...', true);
 
-    /* ── 1. Tentukan hasil ── */
-    const chance = _gacha.isPremium ? 35 : 27;
-    const isWin  = Math.random() * 100 < chance;
+    /* ── 1. Tentukan hasil — dari app.js (sumber kebenaran) ── */
+    const isWin = _gacha.result === 'win';
 
     /*
      * ── 2. Bangun simbol untuk semua 9 reel ──
@@ -267,6 +265,7 @@ const Slot3x3 = (() => {
     await new Promise(r => setTimeout(r, actualWin ? 1200 : 700));
 
     if (isGameDone()) return;
+    _done = true;
     _onResult(actualWin, _gacha.money);
   }
 

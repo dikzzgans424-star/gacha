@@ -219,10 +219,9 @@ const HorseRace = (() => {
     _picked = id;
     _phase  = 'ready';
 
-    /* FIX BUG 3: Tentukan menang/kalah sekarang dengan random chance,
-       BUKAN dari _gacha.result yang belum di-set saat game berjalan */
+    /* Tentukan menang/kalah dari app.js (sumber kebenaran) */
     const chance = _gacha.isPremium ? 0.40 : 0.30;
-    _isWin = Math.random() < chance;
+    _isWin = _gacha.result === 'win';
 
     if (_isWin) {
       _winnerIdx = id;

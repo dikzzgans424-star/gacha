@@ -16,6 +16,7 @@ const CoinFlip = (() => {
   let _bet      = null;   // 'heads' | 'tails'
   let _spinning = false;
   let _raf      = null;
+  let _done     = false;
 
   /* ── Render HTML ── */
   function render() {
@@ -353,6 +354,7 @@ const CoinFlip = (() => {
     _onResult = onResult;
     _bet      = null;
     _spinning = false;
+    _done     = false;
     if (_raf) { cancelAnimationFrame(_raf); _raf = null; }
 
     const area = document.createElement('div');
@@ -393,7 +395,7 @@ const CoinFlip = (() => {
   }
 
   async function flip() {
-    if (window._gameFinished || _spinning || !_bet) return;
+    if (_done || _spinning || !_bet) return;
 
     const spinBtn = document.getElementById('spinGameBtn');
     if (!spinBtn || spinBtn.disabled) return;
@@ -407,14 +409,13 @@ const CoinFlip = (() => {
     const hud = document.getElementById('coinHud');
     if (hud) { hud.textContent = '🪙 Terbang...'; hud.className = 'coin-hud spinning'; }
 
-    /* Tentukan hasil */
-    const chance = _gacha.isPremium ? 0.55 : 0.45;
-    const isWin  = Math.random() < chance;
+    /* Tentukan hasil — dari app.js (sumber kebenaran) */
+    const isWin  = _gacha.result === 'win';
     const result = isWin ? _bet : (_bet === 'heads' ? 'tails' : 'heads');
 
     await runFlip(result);
 
-    if (window._gameFinished) return;
+    if (_done) return;
 
     /* Result HUD */
     const emoji = result === 'heads' ? '👑' : '⚔️';
@@ -427,7 +428,8 @@ const CoinFlip = (() => {
     window.setStatus(isWin ? '🏆 MENANG!' : '💀 Kalah...', isWin);
 
     await new Promise(r => setTimeout(r, isWin ? 1200 : 800));
-    if (window._gameFinished) return;
+    if (_done) return;
+    _done = true;
     _onResult(isWin, _gacha.money);
   }
 
