@@ -204,7 +204,7 @@ const HorseRace = (() => {
     if (!el) return;
     el.innerHTML = HORSES.map((h, i) => `
       <div class="hr-lane-label" style="
-        top: ${LANE_PAD + i * LANE_H + LANE_H / 2 - 10}px;
+        top: ${LANE_PAD + 41 + i * LANE_H + LANE_H / 2 - 10}px;
         color: ${h.color};
         text-shadow: 0 0 8px ${h.shadow};
       ">${h.name}</div>
@@ -692,25 +692,7 @@ const HorseRace = (() => {
 
   /* ── HUD ── */
   function _drawHUD(ctx, W, H) {
-    if (_phase !== 'racing' && _phase !== 'done') return;
-
-    /* Mini position indicators */
-    const trackTop = LANE_PAD + 41;
-
-    _horses.forEach(h => {
-      const screenX = h.x - _cameraX;
-      const laneY   = trackTop + h.lane * LANE_H + LANE_H - 8;
-
-      if (screenX < 30 || screenX > W - 10) return;
-
-      ctx.beginPath();
-      ctx.arc(screenX, laneY, 4, 0, Math.PI * 2);
-      ctx.fillStyle   = h.color;
-      ctx.shadowColor = h.shadow;
-      ctx.shadowBlur  = 8;
-      ctx.fill();
-      ctx.shadowBlur  = 0;
-    });
+    /* HUD kosong — indikator titik dihapus */
   }
 
   /* ────────────────────────────────────

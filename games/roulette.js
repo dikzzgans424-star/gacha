@@ -203,17 +203,16 @@ const Roulette = (() => {
   }
 
   /* ══════════════════════════════════════
-     ANIMASI — wheel & bola SEARAH jarum jam
-     Bola lebih cepat dari wheel di awal,
-     lalu melambat bersamaan, bola jatuh ke slot.
+     ANIMASI — wheel DIAM, hanya bola yang berputar
+     Bola berputar satu arah (searah jarum jam),
+     melambat, lalu jatuh ke slot target.
   ══════════════════════════════════════ */
   function easeOut(t)       { return 1 - Math.pow(1 - t, 3); }
   function easeOutStrong(t) { return 1 - Math.pow(1 - t, 5); }
 
   async function runSpin(finalSlotIdx) {
-    /* Kecepatan — KEDUANYA positif (searah jarum jam) */
-    const W_SPD = 0.0025;   // wheel: lebih pelan
-    const B_SPD = 0.0060;   // bola : lebih cepat (satu arah, tidak bolak-balik)
+    /* Kecepatan bola (wheel tidak bergerak = 0) */
+    const B_SPD = 0.0060;   // bola: searah jarum jam
 
     /* Durasi phase (ms) */
     const D = { spin: 3200, slow: 2500, fall: 700, bounce: 600 };
@@ -224,31 +223,25 @@ const Roulette = (() => {
       end:    D.spin + D.slow + D.fall + D.bounce,
     };
 
-    /* Pre-compute posisi wheel di akhir tiap phase */
-    const wheelEnd1 = W_SPD * D.spin;
-    const wheelEnd2 = wheelEnd1 + W_SPD * D.slow * 0.25;
-    const wheelEnd3 = wheelEnd2 + W_SPD * 0.08 * D.fall;
-
-    /* Pre-compute posisi bola di akhir phase 2 */
+    /* Posisi bola di akhir phase 1 & 2 */
     const ballEnd1 = B_SPD * D.spin;
     const ballEnd2 = ballEnd1 + B_SPD * D.slow * 0.25;
 
     /* Start bola acak supaya tiap spin kelihatan beda */
     const ballStart = Math.random() * Math.PI * 2;
 
-    /* Target: posisi slot di world saat phase 3 selesai */
-    const slotLocal    = finalSlotIdx * SLOT_ANG;
-    const slotWorldEnd = wheelEnd3 + slotLocal;
+    /* Target: posisi slot (wheel diam, jadi slot ada di posisi tetap) */
+    const slotTarget = finalSlotIdx * SLOT_ANG;
 
-    /* Hitung jarak terpendek dari posisi bola akhir phase2 → slot target.
-       Gunakan modulo positif agar bola TIDAK berbalik arah — selalu maju */
-    const rawBallEnd3 = ballStart + ballEnd2;
-    let diff = slotWorldEnd - rawBallEnd3;
-    /* Normalisasi ke [0, 2π] — bola hanya boleh maju (positif) */
+    /* Hitung diff dari posisi bola akhir phase2 → slot target.
+       Selalu maju (positif) agar bola tidak berbalik arah */
+    const rawBallEnd2 = ballStart + ballEnd2;
+    let diff = slotTarget - rawBallEnd2;
     diff = ((diff % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-    const ballEnd3 = rawBallEnd3 + diff;
+    /* Pastikan bola muter minimal setengah putaran lagi sebelum jatuh */
+    if (diff < Math.PI) diff += Math.PI * 2;
 
-    let wheelAng  = 0;
+    const WHEEL_ANG = 0;   // wheel selalu diam di posisi 0
     let ballAng   = ballStart;
     let ballOrbit = R * rBallOrbit;
 
@@ -260,40 +253,35 @@ const Roulette = (() => {
         let   done = false;
 
         if (e < D.spin) {
-          /* Phase 1: full speed — keduanya konstan */
-          wheelAng  = W_SPD * e;
+          /* Phase 1: bola penuh kecepatan */
           ballAng   = ballStart + B_SPD * e;
           ballOrbit = R * rBallOrbit;
 
         } else if (e < T.fall) {
-          /* Phase 2: melambat bersamaan */
+          /* Phase 2: bola melambat */
           const t        = (e - D.spin) / D.slow;
           const integral = t - easeOut(t) * 0.75;
-          wheelAng  = wheelEnd1 + W_SPD * D.slow * integral;
           ballAng   = ballStart + ballEnd1 + B_SPD * D.slow * integral;
           ballOrbit = R * rBallOrbit;
 
         } else if (e < T.bounce) {
-          /* Phase 3: bola jatuh ke slot — lerp dari posisi akhir phase2 → target */
-          const t   = (e - T.fall) / D.fall;
-          const tE  = easeOutStrong(t);
-
-          wheelAng  = wheelEnd2 + W_SPD * 0.08 * (e - T.fall);
+          /* Phase 3: bola jatuh ke slot */
+          const t          = (e - T.fall) / D.fall;
+          const tE         = easeOutStrong(t);
           const ballPhase2 = ballStart + ballEnd2;
-          ballAng   = ballPhase2 + diff * tE;  /* diff selalu positif → tidak balik */
+          ballAng   = ballPhase2 + diff * tE;
           ballOrbit = R * (rBallOrbit + (rBallFall - rBallOrbit) * tE);
 
         } else {
           /* Phase 4: bounce settle */
           const t      = (e - T.bounce) / D.bounce;
-          wheelAng     = wheelEnd3;
-          ballAng      = slotWorldEnd;
+          ballAng      = slotTarget;
           const bounce = Math.sin(t * Math.PI) * (1 - t) * 0.025;
           ballOrbit    = R * (rBallFall + bounce);
           if (e >= T.end) done = true;
         }
 
-        drawFrame(wheelAng, ballOrbit, ballAng);
+        drawFrame(WHEEL_ANG, ballOrbit, ballAng);
         if (done) { resolve(); return; }
         _raf = requestAnimationFrame(frame);
       }

@@ -6,10 +6,10 @@
 const Spaceman = (() => {
 
   /* ── Config ── */
-  const TICK_MS        = 33;
-  const SPEED_BASE     = 0.008;
-  const SPEED_FAST     = 0.018;
-  const TRAIL_MAX_LEN  = 60;
+  const TICK_MS        = 100;   // tick lebih jarang → multiplier naik lebih pelan
+  const SPEED_BASE     = 0.015; // increment per tick (100ms interval = +0.015 per 100ms)
+  const SPEED_FAST     = 0.025; // setelah 2×
+  const TRAIL_MAX_LEN  = 120;   // trail lebih panjang → grafik lebih smooth
 
   /* ── State ── */
   let _gacha       = null;
@@ -70,9 +70,11 @@ const Spaceman = (() => {
 
   function _calcCrashAt(isWin) {
     if (isWin) {
-      return parseFloat((2.2 + Math.random() * 4.0).toFixed(2));
+      // Crash jauh di atas, kasih ruang user untuk cashout
+      return parseFloat((3.5 + Math.random() * 5.0).toFixed(2));
     } else {
-      return parseFloat((1.2 + Math.random() * 2.1).toFixed(2));
+      // Crash di bawah, tapi beri sedikit waktu dulu
+      return parseFloat((1.5 + Math.random() * 2.0).toFixed(2));
     }
   }
 
@@ -139,8 +141,9 @@ const Spaceman = (() => {
     _crashAt = _calcCrashAt(_isWin);
 
     if (_isWin) {
+      // Auto-cashout di 60–75% jarak crashAt, beri ruang aman dari crash
       const range = _crashAt - 1.0;
-      _autoCrashAt = parseFloat((1.0 + range * (0.55 + Math.random() * 0.25)).toFixed(2));
+      _autoCrashAt = parseFloat((1.0 + range * (0.60 + Math.random() * 0.15)).toFixed(2));
       _autoCrash   = true;
     }
 
@@ -352,25 +355,24 @@ const Spaceman = (() => {
     });
 
     // 3. Hitung Posisi Karakter & Titik Grafik
-    _floatingT += 0.08;
-    let floatOffset = Math.sin(_floatingT) * 4;
+    _floatingT += 0.025;  // lebih pelan → float lebih natural
+    let floatOffset = Math.sin(_floatingT) * 3;
 
     if (_phase === 'ready' || _phase === 'idle') {
       _spacemanX = W * 0.15;
       _spacemanY = H * 0.75 + floatOffset;
     } 
     else if (_phase === 'flying') {
-      // Grafik melengkung naik eksponensial khas Spaceman asli
-      let progress = Math.min(1, (_multiplier - 1.0) / 4.0); 
+      // Grafik melengkung naik eksponensial
+      let progress = Math.min(1, (_multiplier - 1.0) / 5.0);
       _targetX = W * 0.15 + (progress * W * 0.65);
-      _targetY = H * 0.80 - (Math.pow(progress, 1.5) * H * 0.55);
+      _targetY = H * 0.80 - (Math.pow(progress, 1.4) * H * 0.58);
 
-      // Interpolasi halus (smooth easing tracking)
-      _spacemanX += (_targetX - _spacemanX) * 0.1;
-      _spacemanY += (_targetY - _spacemanY) * 0.1;
-      _spacemanY += Math.sin(_floatingT * 1.5) * 0.5; // micro floating pas terbang
+      // Interpolasi lebih halus (lerp kecil = smoother)
+      _spacemanX += (_targetX - _spacemanX) * 0.05;
+      _spacemanY += (_targetY - _spacemanY) * 0.05;
 
-      // Catat koordinat jalur ke dalam array list lintasan grafik
+      // Catat koordinat jalur
       _graphPoints.push({ x: _spacemanX, y: _spacemanY });
       if (_graphPoints.length > TRAIL_MAX_LEN) _graphPoints.shift();
     }
@@ -381,8 +383,17 @@ const Spaceman = (() => {
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(_graphPoints[0].x, H);
-      _graphPoints.forEach(p => ctx.lineTo(p.x, p.y));
-      ctx.lineTo(_graphPoints[_graphPoints.length - 1].x, H);
+      ctx.lineTo(_graphPoints[0].x, _graphPoints[0].y);
+      for (let i = 1; i < _graphPoints.length - 1; i++) {
+        const mx = (_graphPoints[i].x + _graphPoints[i + 1].x) / 2;
+        const my = (_graphPoints[i].y + _graphPoints[i + 1].y) / 2;
+        ctx.quadraticCurveTo(_graphPoints[i].x, _graphPoints[i].y, mx, my);
+      }
+      if (_graphPoints.length > 1) {
+        const last = _graphPoints[_graphPoints.length - 1];
+        ctx.lineTo(last.x, last.y);
+        ctx.lineTo(last.x, H);
+      }
       ctx.closePath();
       let areaGrad = ctx.createLinearGradient(0, H * 0.3, 0, H);
       areaGrad.addColorStop(0, 'rgba(212, 175, 90, 0.22)');
@@ -391,12 +402,18 @@ const Spaceman = (() => {
       ctx.fill();
       ctx.restore();
 
-      // Garis kuning emas tebal menyala
+      // Garis kuning emas tebal menyala — pakai bezier biar smooth
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(_graphPoints[0].x, _graphPoints[0].y);
-      for (let i = 1; i < _graphPoints.length; i++) {
-        ctx.lineTo(_graphPoints[i].x, _graphPoints[i].y);
+      for (let i = 1; i < _graphPoints.length - 1; i++) {
+        const mx = (_graphPoints[i].x + _graphPoints[i + 1].x) / 2;
+        const my = (_graphPoints[i].y + _graphPoints[i + 1].y) / 2;
+        ctx.quadraticCurveTo(_graphPoints[i].x, _graphPoints[i].y, mx, my);
+      }
+      if (_graphPoints.length > 1) {
+        const last = _graphPoints[_graphPoints.length - 1];
+        ctx.lineTo(last.x, last.y);
       }
       ctx.strokeStyle = '#ffd700';
       ctx.lineWidth = 3.5;
