@@ -2189,3 +2189,281 @@ body::after {
   .token-balance-value { font-size: 42px; }
   .token-game-btn { padding: 11px 6px; font-size: 11px; }
 }
+
+/* ══════════════════════════════════════
+   BLACKJACK
+══════════════════════════════════════ */
+
+.bj-card-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+  padding: 24px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: box-shadow 0.4s;
+}
+
+.bj-card-wrap.bj-result-win {
+  box-shadow: 0 0 0 1.5px var(--win-green), 0 0 32px rgba(76,175,130,0.18);
+}
+.bj-card-wrap.bj-result-lose {
+  box-shadow: 0 0 0 1.5px var(--lose-red), 0 0 32px rgba(207,92,92,0.15);
+}
+
+.bj-section-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+/* ── Sides (dealer / player) ── */
+.bj-side { display: flex; flex-direction: column; gap: 10px; }
+
+.bj-side-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.bj-hand-val {
+  font-family: 'DM Serif Display', serif;
+  font-size: 18px;
+  color: var(--gold);
+  letter-spacing: 0;
+  font-weight: 400;
+  line-height: 1;
+}
+.bj-hand-val.bust { color: var(--lose-red); }
+.bj-hand-val.bj   { color: var(--win-green); }
+
+/* ── Card row ── */
+.bj-cards {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 90px;
+  align-items: flex-start;
+}
+
+/* ── Kartu ── */
+.bj-card {
+  width: 58px;
+  height: 84px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 6px;
+  position: relative;
+  flex-shrink: 0;
+  transform-origin: bottom center;
+  animation: bj-deal 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes bj-deal {
+  from { opacity: 0; transform: translateY(-18px) scale(0.88); }
+  to   { opacity: 1; transform: translateY(0)     scale(1); }
+}
+
+.bj-card-black {
+  background: #f8f5ef;
+  border: 1px solid rgba(0,0,0,0.12);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.9);
+  color: #111;
+}
+
+.bj-card-red {
+  background: #f8f5ef;
+  border: 1px solid rgba(0,0,0,0.12);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.9);
+  color: #c0392b;
+}
+
+.bj-card-back {
+  background: linear-gradient(135deg, #1a1a3a, #2a2a50);
+  border: 1px solid rgba(212,175,90,0.3);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+  color: var(--gold-dim);
+  font-size: 38px;
+  align-items: center;
+  justify-content: center;
+}
+
+.bj-card-rank-top {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  align-self: flex-start;
+}
+
+.bj-card-rank-bot {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  align-self: flex-end;
+  transform: rotate(180deg);
+}
+
+.bj-card-suit {
+  font-size: 26px;
+  line-height: 1;
+  text-align: center;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* ── Divider ── */
+.bj-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bj-divider-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border-soft);
+}
+.bj-divider-chip {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--text-muted);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-soft);
+  border-radius: 20px;
+  padding: 4px 10px;
+}
+
+/* ── Status ── */
+.bj-status {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+  min-height: 18px;
+  transition: color 0.2s;
+}
+
+/* ── Action buttons ── */
+.bj-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.bj-btn {
+  padding: 12px 6px;
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s, transform 0.1s;
+}
+
+.bj-btn:active:not(:disabled) { transform: scale(0.96); }
+.bj-btn:disabled { opacity: 0.28; cursor: default; }
+
+.bj-btn-hit {
+  background: linear-gradient(135deg, rgba(76,175,130,0.18), rgba(76,175,130,0.06));
+  border-color: rgba(76,175,130,0.3);
+  color: var(--win-green);
+}
+.bj-btn-hit:hover:not(:disabled) {
+  background: rgba(76,175,130,0.22);
+  border-color: rgba(76,175,130,0.5);
+}
+
+.bj-btn-stand {
+  background: linear-gradient(135deg, rgba(207,92,92,0.18), rgba(207,92,92,0.06));
+  border-color: rgba(207,92,92,0.3);
+  color: var(--lose-red);
+}
+.bj-btn-stand:hover:not(:disabled) {
+  background: rgba(207,92,92,0.22);
+  border-color: rgba(207,92,92,0.5);
+}
+
+.bj-btn-double {
+  background: linear-gradient(135deg, rgba(212,175,90,0.18), rgba(212,175,90,0.06));
+  border-color: var(--border-glow);
+  color: var(--gold);
+}
+.bj-btn-double:hover:not(:disabled) {
+  background: rgba(212,175,90,0.22);
+  border-color: rgba(212,175,90,0.5);
+}
+
+/* ── Info row ── */
+.bj-info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--bg-raised);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-soft);
+}
+
+.bj-info-item { display: flex; flex-direction: column; gap: 2px; }
+.bj-info-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.bj-info-val {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.bj-info-val.gold { color: var(--gold); }
+
+/* ── Rules ── */
+.bj-rules {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bj-rules-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.bj-rules-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bj-rules-body span {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+@media (max-width: 380px) {
+  .bj-card { width: 50px; height: 74px; }
+  .bj-card-suit { font-size: 22px; }
+}

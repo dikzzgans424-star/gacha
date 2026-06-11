@@ -18,6 +18,7 @@ const GAME_MULTIPLIER = {
   coinflip:  2,
   horserace: 2,
   spaceman:  null,  /* dynamic, kena pajak 5% */
+  blackjack: 2,
 };
 
 const GAME_LABELS = {
@@ -26,6 +27,7 @@ const GAME_LABELS = {
   coinflip:  '🪙 Coin Flip',
   horserace: '🏇 Horse Race',
   spaceman:  '🚀 Spaceman',
+  blackjack: '🃏 Blackjack',
 };
 
 const GAMES = {
@@ -34,6 +36,7 @@ const GAMES = {
   coinflip:  () => CoinFlip,
   spaceman:  () => Spaceman,
   horserace: () => HorseRace,
+  blackjack: () => Blackjack,
 };
 
 /* ────────────────────────────────────────
