@@ -17,4 +17,4 @@ export async function handler() {
     statusCode: 200,
     body: JSON.stringify(data)
   };
-    }
+}
