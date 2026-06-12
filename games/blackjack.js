@@ -314,8 +314,8 @@ const Blackjack = (() => {
       _setStatus(`${pv} vs ${dv} — Dealer menang`, 'var(--lose-red)');
       playerWins = false;
     } else {
-      _setStatus(`${pv} vs ${dv} — Seri (push)`, 'var(--text-secondary)');
-      playerWins = false; // push = lose di sistem (bet tidak kembali)
+      _setStatus(`${pv} vs ${dv} — Seri! Bet kembali 🤝`, 'var(--gold)');
+      playerWins = true; // seri = menang (bet dikembalikan = tidak rugi)
     }
 
     await _delay(1200);

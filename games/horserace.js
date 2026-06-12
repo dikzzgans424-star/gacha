@@ -254,7 +254,6 @@ const HorseRace = (() => {
     if (_phase !== 'ready' || _picked < 0) return;
     _phase = 'racing';
 
-    /* Hide pick section, disable start */
     const pickSec  = document.getElementById('hrPickSection');
     const startBtn = document.getElementById('hrStartBtn');
     if (pickSec)  pickSec.classList.add('hr-hidden');
@@ -263,18 +262,72 @@ const HorseRace = (() => {
     const stat = document.getElementById('hrStatus');
     if (stat) stat.textContent = '🏇 Balapan dimulai!';
 
-    /* FIX BUG 5: gunakan formula yang sama dengan _draw() dan _drawFinishLine()
-       yaitu W * 0.08 + W * 3.5 — tanpa _cameraX agar konsisten */
-    const W = _canvas._lw || 380;
-    const finishX = W * 0.08 + W * 3.5; // world finish line (sinkron dengan _draw)
+    const W         = _canvas._lw || 380;
+    const finishX   = W * 0.08 + W * 3.5;
+    const totalDist = finishX - W * 0.08;
 
+    /* ── Script dramatik: tentukan momentum tiap kuda ── */
+    /* Ide: bagi race jadi 3 zone (awal, tengah, akhir).
+       Di tiap zone tiap kuda punya "target rank" berbeda.
+       Si pemenang di awal boleh di belakang, tengah mulai naik,
+       akhir dia yang paling depan.
+       Si kalah boleh unggul di awal/tengah tapi keok di akhir. */
+
+    const ZONES = 3;
+    const zoneLen = totalDist / ZONES;
+
+    /* Assign target rank per zone untuk tiap kuda */
+    /* targetRank[zone] = urutan ke-berapa kuda ini di zone itu (0 = terdepan) */
     _horses.forEach(h => {
-      const isWinner = h.id === _winnerIdx;
-      /* Winner base speed slightly higher, also less variance */
-      h.speed     = h.baseSpeed + (isWinner ? 0.25 : 0);
+      h.targetRankByZone = [];
       h.finishX   = finishX;
+      h.finished  = false;
+      h.finishOrder = -1;
       h._speedVar = 0;
       h._nextVar  = 0;
+      h._boostT   = 0;   // sisa frame burst speed
+      h._zone     = 0;   // zone saat ini
+    });
+
+    /* Buat drama: acak urutan di tiap zone tapi paksa winner menang di akhir */
+    const N   = HORSES.length;
+    const ids  = HORSES.map(h => h.id);
+
+    for (let z = 0; z < ZONES; z++) {
+      /* Acak urutan */
+      const shuffled = [...ids].sort(() => Math.random() - 0.5);
+
+      if (z === ZONES - 1) {
+        /* Zone terakhir: winner HARUS rank 0, loser TIDAK boleh rank 0 */
+        const wi = shuffled.indexOf(_winnerIdx);
+        if (wi !== 0) {
+          /* Tukar winner ke depan, yang di depan mundur ke posisi winner */
+          [shuffled[0], shuffled[wi]] = [shuffled[wi], shuffled[0]];
+        }
+        /* Pastikan picked horse (kalau kalah) tidak di rank 0 */
+        if (!_isWin && shuffled[0] === _picked) {
+          /* swap dengan rank 1 */
+          [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
+          /* cek lagi winner */
+          const wii = shuffled.indexOf(_winnerIdx);
+          if (wii !== 0) [shuffled[0], shuffled[wii]] = [shuffled[wii], shuffled[0]];
+        }
+      } else if (z === 0) {
+        /* Zone awal: biar seru, winner TIDAK boleh rank 0 (kelihatan kalah dulu) */
+        const wi = shuffled.indexOf(_winnerIdx);
+        if (wi === 0 && N > 1) {
+          [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
+        }
+      }
+      /* Simpan target rank */
+      shuffled.forEach((id, rank) => {
+        _horses[id].targetRankByZone.push(rank);
+      });
+    }
+
+    /* Speed awal semua kuda sama (base + sedikit noise) */
+    _horses.forEach(h => {
+      h.speed = BASE_SPEED + (Math.random() * 0.2 - 0.1);
     });
 
     _raceStarted = true;
@@ -300,24 +353,64 @@ const HorseRace = (() => {
 
     /* ── Update horse positions when racing ── */
     if (_phase === 'racing') {
-      const finishWorldX = W * 0.08 + W * 3.5; // finish line in world coords
-      let   leaderX      = 0;
-      let   finishCount  = 0;
+      const W           = _canvas._lw || 380;
+      const startWorldX = W * 0.08;
+      const finishWorldX= startWorldX + W * 3.5;
+      const totalDist   = finishWorldX - startWorldX;
+      const ZONES       = 3;
+      const zoneLen     = totalDist / ZONES;
+
+      let finishCount = 0;
+      let leaderX     = 0;
+
+      /* Sort kuda berdasarkan posisi saat ini (depan = rank 0) */
+      const sorted = [..._horses].sort((a, b) => b.x - a.x);
 
       _horses.forEach(h => {
         if (h.finished) { finishCount++; return; }
 
-        /* Random speed variance every ~40 frames */
-        h._nextVar--;
-        if (h._nextVar <= 0) {
-          const isWinner = h.id === _winnerIdx;
-          h._speedVar = (Math.random() - (isWinner ? 0.35 : 0.5)) * 0.6;
-          h._nextVar  = 25 + Math.floor(Math.random() * 30);
+        /* Tentukan zone saat ini */
+        const progress = (h.x - startWorldX) / totalDist;
+        const zone     = Math.min(ZONES - 1, Math.floor(progress * ZONES));
+        h._zone        = zone;
+
+        /* Target rank kuda ini di zone saat ini */
+        const targetRank = h.targetRankByZone[zone];
+
+        /* Rank aktual saat ini */
+        const currentRank = sorted.findIndex(s => s.id === h.id);
+
+        /* Selisih rank: positif = kuda ini lebih belakang dari target */
+        const rankDiff = currentRank - targetRank;
+
+        /* Hitung jarak ke kuda di depan/belakang untuk referensi gap */
+        const gap = (sorted[0]?.x - h.x) || 0;
+
+        /* Speed adjustment berdasarkan rank vs target:
+           - rankDiff > 0 (lebih belakang dari harusnya) → ngebut
+           - rankDiff < 0 (lebih depan dari harusnya)   → melambat sedikit
+           - rankDiff = 0                                → speed normal */
+        let speedAdj = 0;
+        if (rankDiff > 0) {
+          /* Kejar → boost, makin jauh makin kenceng tapi ada cap */
+          speedAdj = Math.min(rankDiff * 0.18, 0.7);
+          /* Burst dramatis: kalau beda 2+ rank dan zona akhir → lebih kenceng */
+          if (rankDiff >= 2 && zone === ZONES - 1) speedAdj += 0.35;
+        } else if (rankDiff < 0) {
+          /* Terlalu depan → sedikit melambat supaya yang lain bisa nyusul dulu */
+          speedAdj = Math.max(rankDiff * 0.12, -0.4);
         }
 
-        const spd = Math.max(0.5, h.speed + h._speedVar);
-        h.x    += spd;
-        h.legT += spd * 0.18;
+        /* Random micro-variance biar tidak kelihatan robotik */
+        h._nextVar--;
+        if (h._nextVar <= 0) {
+          h._speedVar = (Math.random() - 0.5) * 0.25;
+          h._nextVar  = 18 + Math.floor(Math.random() * 22);
+        }
+
+        const spd = Math.max(0.55, h.speed + speedAdj + h._speedVar);
+        h.x       += spd;
+        h.legT    += spd * 0.18;
         h.wobbleT += 0.12;
 
         if (h.x > leaderX) leaderX = h.x;
@@ -328,15 +421,22 @@ const HorseRace = (() => {
           h.finishOrder = finishCount;
           finishCount++;
 
+          /* Update status */
+          const stat = document.getElementById('hrStatus');
+          if (stat && h.id === _winnerIdx) {
+            const isWin  = _isWin;
+            const medal  = ['🥇','🥈','🥉'][h.finishOrder] || '🏁';
+            stat.textContent = `${medal} ${h.name} finish pertama!`;
+          }
+
           if (h.id === _winnerIdx) {
-            /* Winner crossed — end race */
             setTimeout(() => _endRace(), 600);
           }
         }
       });
 
       /* Camera follows leader */
-      const camTarget = Math.max(0, leaderX - W * 0.35);
+      const camTarget = Math.max(0, leaderX - (W * 0.38));
       _cameraX += (camTarget - _cameraX) * CAMERA_EASE;
     } else {
       /* Idle: horses bob in place */
