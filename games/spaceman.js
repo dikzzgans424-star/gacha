@@ -44,6 +44,7 @@ const Spaceman = (() => {
   let _tilt      = 0;
   let _ufoX      = 0;      // UFO posisi
   let _ufoT      = 0;
+  let _flyT      = 0;      // waktu terbang dalam detik (untuk animasi posisi)
 
   /* ── Canvas ── */
   let _cv = null, _ctx = null;
@@ -72,6 +73,7 @@ const Spaceman = (() => {
     _tilt       = 0;
     _ufoX       = 40;
     _ufoT       = 0;
+    _flyT       = 0;
     _crashStartX = null;
     _crashStartY = null;
     if (_tickTimer) clearInterval(_tickTimer);
@@ -101,9 +103,15 @@ const Spaceman = (() => {
         <div class="spaceman-canvas-wrap" id="smWrap">
           <canvas id="smCanvas"></canvas>
         </div>
-        <div class="sm-btn-row" id="smBtnRow">
-          <button class="sm-btn sm-cashout" id="smCashBtn"  onclick="Spaceman._cashout()" disabled>💰 CASHOUT</button>
-          <button class="sm-btn sm-start"   id="smStartBtn" onclick="Spaceman._start()">▶ MULAI</button>
+        <div class="sm-btn-row" id="smBtnRow" style="display:flex;gap:10px;margin:10px 0;">
+          <button class="sm-btn sm-start"   id="smStartBtn" onclick="Spaceman._start()"
+            style="flex:1;padding:14px 0;font-size:16px;font-weight:700;border-radius:10px;border:none;cursor:pointer;background:linear-gradient(135deg,#4caf82,#2d8a5e);color:#fff;letter-spacing:1px;transition:opacity .2s;">
+            ▶ MULAI
+          </button>
+          <button class="sm-btn sm-cashout" id="smCashBtn"  onclick="Spaceman._cashout()" disabled
+            style="flex:1;padding:14px 0;font-size:16px;font-weight:700;border-radius:10px;border:none;cursor:pointer;background:linear-gradient(135deg,#f5a623,#e07b00);color:#fff;letter-spacing:1px;opacity:0.4;transition:opacity .2s;">
+            💰 CASHOUT
+          </button>
         </div>
         <div class="spaceman-info-row">
           <div class="spaceman-info-item">
@@ -166,8 +174,8 @@ const Spaceman = (() => {
     _phase = 'flying';
     const sb = document.getElementById('smStartBtn');
     const cb = document.getElementById('smCashBtn');
-    if (sb) { sb.disabled = true; sb.textContent = '🚀 Terbang!'; }
-    if (cb) { cb.disabled = false; cb.classList.add('active'); }
+    if (sb) { sb.disabled = true; sb.textContent = '🚀 Terbang!'; sb.style.opacity = '0.4'; }
+    if (cb) { cb.disabled = false; cb.classList.add('active'); cb.style.opacity = '1'; cb.style.cursor = 'pointer'; }
     const st = document.getElementById('smStatus');
     if (st) st.textContent = 'Astronot sedang terbang!';
     _tickTimer = setInterval(_tick, TICK_MS);
@@ -175,7 +183,9 @@ const Spaceman = (() => {
 
   function _cashout() {
     if (_phase !== 'flying' || _cashedOut) return;
-    _isWin ? _doCashout() : _doCrash();
+    // Cashout selalu berhasil saat player menekan tombol
+    // Crash hanya terjadi otomatis saat multiplier >= _crashAt (di _tick)
+    _doCashout();
   }
 
   function _doCashout() {
@@ -184,12 +194,14 @@ const Spaceman = (() => {
     _phase     = 'done';
     clearInterval(_tickTimer);
     const cb = document.getElementById('smCashBtn');
-    if (cb) cb.disabled = true;
+    const sb = document.getElementById('smStartBtn');
+    if (cb) { cb.disabled = true; cb.classList.remove('active'); }
+    if (sb) { sb.disabled = true; }
     const bet   = _gacha.betAmount || (_gacha.money / 1000);
     const prize = Math.floor(bet * _multiplier * 1000 * 0.95);
     const st = document.getElementById('smStatus');
-    if (st) { st.textContent = `✓ Cashout Rp ${prize.toLocaleString('id-ID')}!`; st.style.color = '#4caf82'; }
-    setTimeout(() => _callback(true, prize), 2000);
+    if (st) { st.textContent = `✓ Cashout ${_multiplier.toFixed(2)}× — Rp ${prize.toLocaleString('id-ID')}!`; st.style.color = '#4caf82'; }
+    setTimeout(() => _callback(true, prize), 2500);
   }
 
   function _doCrash() {
@@ -230,6 +242,7 @@ const Spaceman = (() => {
     _jetT    += 0.20;
     _balloonT+= 0.032;
     _ufoT    += 0.012;
+    if (_phase === 'flying') _flyT += 0.016;  // terus naik selama terbang
 
     /* Lerp bg merah */
     const targetRed = _phase === 'crashed' ? 1 : 0;
@@ -257,8 +270,9 @@ const Spaceman = (() => {
 
     /* ── Planet terbang ── */
     if (_phase === 'flying' || _phase === 'done') {
-      const ts = Math.min(1, (_multiplier - 1) / 2);
-      _planetS += (ts - _planetS) * 0.045;
+      // Planet muncul dan membesar berdasarkan waktu terbang, bukan multiplier
+      const ts = Math.min(1, _flyT / 2.0);   // full size dalam 2 detik
+      _planetS += (ts - _planetS) * 0.05;
       _drawFlyingPlanet(ctx, W, H);
     }
 
@@ -420,20 +434,27 @@ const Spaceman = (() => {
   ───────────────────────────────── */
   function _updatePos(W, H) {
     if (_phase === 'ready') {
-      /* Tegak berdiri di tanah — posisi tetap, tidak lerp */
+      /* Tegak berdiri di tanah — posisi tetap */
       _ax   = W * 0.42;
       _ay   = H * 0.80;
       _tilt = 0;
     } else if (_phase === 'flying') {
-      /* Naik pelan lama-lama ke tengah, max Y = 35% dari atas */
-      const prog = Math.min(1, (_multiplier - 1.0) / (_crashAt - 1.0));
-      /* easeOut supaya naik cepat di awal lalu melambat */
-      const progE = 1 - Math.pow(1 - prog, 2);
-      _tx   = W * 0.30 + progE * W * 0.18;   /* gerak sedikit ke kanan */
-      _ty   = H * 0.80 - progE * H * 0.45;   /* naik ke 35% dari atas */
-      _tilt = -0.3 - progE * 0.2;            /* makin miring pose hero */
-      _ax  += (_tx - _ax) * 0.025;           /* lerp lambat = naik mulus */
-      _ay  += (_ty - _ay) * 0.025;
+      /* Animasi naik terus menerus berdasarkan WAKTU (_flyT), bukan crashAt
+         supaya animasi selalu bergerak berapapun nilai crashAt              */
+      // Phase 1 (0–1.5s): naik cepat dari bawah ke posisi tengah
+      // Phase 2 (>1.5s): mengambang pelan naik sambil goyang sedikit
+      const risePhase  = Math.min(1, _flyT / 1.5);             // 0→1 dalam 1.5s
+      const riseE      = 1 - Math.pow(1 - risePhase, 2.5);     // easeOut kuat
+      const floatDrift = Math.sin(_flyT * 0.8) * W * 0.012;    // goyang kanan-kiri
+      const slowRise   = (_flyT > 1.5) ? (_flyT - 1.5) * H * 0.012 : 0; // naik pelan terus
+
+      _tx   = W * 0.38 + riseE * W * 0.12 + floatDrift;
+      _ty   = H * 0.80 - riseE * H * 0.42 - slowRise;
+      _ty   = Math.max(H * 0.12, _ty);                          // jangan keluar atas
+      _tilt = -0.25 - riseE * 0.18 + Math.sin(_flyT * 0.6) * 0.04;
+
+      _ax  += (_tx - _ax) * 0.04;   /* lerp lebih responsif */
+      _ay  += (_ty - _ay) * 0.04;
       _trail.push({ x: _ax, y: _ay });
       if (_trail.length > TRAIL_MAX) _trail.shift();
     } else if (_phase === 'crashed') {
