@@ -72,10 +72,14 @@ const Blackjack = (() => {
         <div class="bj-card-inner">🂠</div>
       </div>`;
     }
-    const isRed = RED_SUITS.has(card.suit);
+    const isRed  = RED_SUITS.has(card.suit);
+    const FACE   = { 'J': '🤴', 'Q': '👸', 'K': '🤴', 'A': '★' };
+    const faceEl = FACE[card.rank]
+      ? `<div class="bj-card-face">${FACE[card.rank]}</div>`
+      : `<div class="bj-card-suit">${card.suit}</div>`;
     return `<div class="bj-card ${isRed ? 'bj-card-red' : 'bj-card-black'} bj-card-deal">
       <div class="bj-card-rank-top">${card.rank}</div>
-      <div class="bj-card-suit">${card.suit}</div>
+      ${faceEl}
       <div class="bj-card-rank-bot">${card.rank}</div>
     </div>`;
   }

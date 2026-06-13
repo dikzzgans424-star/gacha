@@ -341,78 +341,63 @@ const Roulette = (() => {
   }
 
   async function runSpin(finalSlotIdx) {
-    /* Kecepatan awal (rad/ms), negatif = CCW = kiri */
-    const V_PEAK = -0.012;   // langsung cepat
+    const TOTAL_MS  = 6500;   // durasi total spin + fall
+    const BOUNCE_MS = 800;
 
-    const D = {
-      decel:  5500,   // decelerasi panjang: cepat → lambat
-      fall:   900,
-      bounce: 800,
-    };
-    const T = {
-      fall:   D.decel,
-      bounce: D.decel + D.fall,
-      end:    D.decel + D.fall + D.bounce,
-    };
-
-    /* Total sudut selama decel: integral ease-out dari V_PEAK → 0
-       = V_PEAK * D.decel * 0.5 (area di bawah kurva) */
-    const A_decel = V_PEAK * D.decel * 0.5;
-
-    /* Bola mulai di posisi atas (12 o'clock = -π/2) agar langsung terlihat berputar */
+    /* Bola mulai di 12 o'clock */
     const ballStart = -Math.PI / 2;
 
-    /* Posisi bola akhir phase decel */
-    const endDecel = ballStart + A_decel;
-
-    /* Target slot: harus sama persis dengan midAng di drawWheel
-       midAng = i * SLOT_ANG - π/2  (CW dari atas)
-       Bola bergerak CCW, kita normalisasi diff agar selalu CCW */
+    /* Target slot — sama persis dengan midAng di drawWheel */
     const slotAngTarget = finalSlotIdx * SLOT_ANG - Math.PI / 2;
 
-    let diff = slotAngTarget - endDecel;
-    diff = -(( (-diff) % (Math.PI*2) + Math.PI*2 ) % (Math.PI*2));
-    if (diff === 0) diff = -Math.PI * 2;
-    if (diff > -Math.PI * 2) diff -= Math.PI * 2;
+    /* Hitung totalAngle: bola berputar CCW (negatif) minimal 5 putaran penuh
+       lalu berhenti di slotAngTarget */
+    const MIN_ROUNDS  = 5;
+    const minTravel   = -MIN_ROUNDS * Math.PI * 2;
 
-    /* finalAng = posisi bola setelah jatuh ke slot */
-    const finalAng = endDecel + diff;
+    /* Beda dari ballStart ke target (CCW) */
+    let rawDiff = slotAngTarget - ballStart;
+    /* Normalisasi ke CCW: paksa jadi negatif dalam (-2π, 0] */
+    rawDiff = -(( (-rawDiff) % (Math.PI*2) + Math.PI*2 ) % (Math.PI*2));
+    if (rawDiff === 0) rawDiff = -Math.PI * 2;
 
-    let ballAng   = ballStart;
-    let ballOrbit = R * rTrack;
+    /* Tambah putaran penuh agar minimal MIN_ROUNDS */
+    let totalAngle = rawDiff;
+    while (totalAngle > minTravel) totalAngle -= Math.PI * 2;
+
+    const finalAng = ballStart + totalAngle;
+
+    /* Orbit: bola mulai di jalur (rTrack), masuk ke slot (rSlot) di 15% terakhir */
+    const FALL_START = 0.85;   // mulai jatuh di 85% animasi
 
     const t0 = performance.now();
 
     return new Promise(resolve => {
       function frame(now) {
-        const e    = now - t0;
-        let   done = false;
+        const elapsed = now - t0;
 
-        if (e < D.decel) {
-          /* Phase 1: cepat → lambat (ease-out cubic dari V_PEAK → 0) */
-          const t  = e / D.decel;
-          const tE = easeOut3(t);
-          ballAng   = ballStart + A_decel * tE;
-          ballOrbit = R * rTrack;
-
-        } else if (e < T.bounce) {
-          /* Phase 2: jatuh ke slot */
-          const t  = (e - D.decel) / D.fall;
-          const tE = easeOut5(t);
-          ballAng   = endDecel + diff * tE;
-          ballOrbit = R * (rTrack + (rSlot - rTrack) * tE);
-
-        } else {
-          /* Phase 3: bounce settle */
-          const t  = Math.min((e - T.bounce) / D.bounce, 1);
-          const tE = easeOutBounce(t);
-          ballAng   = finalAng;
-          ballOrbit = R * rSlot + R * 0.025 * (1 - tE);
-          if (e >= T.end) done = true;
+        /* ── Bounce phase setelah spin selesai ── */
+        if (elapsed >= TOTAL_MS) {
+          const tb  = Math.min((elapsed - TOTAL_MS) / BOUNCE_MS, 1);
+          const tE  = easeOutBounce(tb);
+          const orb = R * rSlot + R * 0.025 * (1 - tE);
+          drawFrame(orb, finalAng);
+          if (elapsed >= TOTAL_MS + BOUNCE_MS) { resolve(); return; }
+          _raf = requestAnimationFrame(frame);
+          return;
         }
 
-        drawFrame(ballOrbit, ballAng);
-        if (done) { resolve(); return; }
+        /* ── Spin phase: satu ease-out5 dari ballStart → finalAng ── */
+        const t  = elapsed / TOTAL_MS;
+        const tE = easeOut5(t);          // satu kurva mulus, tidak ada sambungan
+        const ballAng = ballStart + totalAngle * tE;
+
+        /* Orbit mengecil smooth di 15% terakhir */
+        const fallT   = Math.max(0, (t - FALL_START) / (1 - FALL_START));
+        const fallE   = easeOut3(fallT);
+        const ballOrb = R * (rTrack + (rSlot - rTrack) * fallE);
+
+        drawFrame(ballOrb, ballAng);
         _raf = requestAnimationFrame(frame);
       }
       _raf = requestAnimationFrame(frame);

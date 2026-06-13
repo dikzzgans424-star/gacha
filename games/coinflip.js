@@ -275,10 +275,9 @@ const CoinFlip = (() => {
       return Math.cos(angle);
     }
 
-    /* Fungsi: tentukan sisi yang menghadap dari scaleX */
-    function getSide(scaleX, progress) {
-      const halfIdx = Math.floor(progress * halfFlips);
-      return (halfIdx % 2 === 0) ? 'heads' : 'tails';
+    /* Fungsi: tentukan sisi yang menghadap — langsung dari scaleX */
+    function getSide(scaleX) {
+      return scaleX >= 0 ? 'heads' : 'tails';
     }
 
     const maxHeight = CR * 2.8;   // px naik dari posisi normal
@@ -307,7 +306,7 @@ const CoinFlip = (() => {
           yOff         = -(Math.sin(tE * Math.PI * 0.5) * maxHeight);
           flipProgress = tE * 0.6;   // selesai 60% flip saat di puncak
           scaleX       = getScaleX(flipProgress);
-          side         = getSide(scaleX, flipProgress);
+          side         = getSide(scaleX);
 
         } else if (e < T.landing) {
           /* ── Descent: turun + flip melambat ── */
@@ -317,7 +316,7 @@ const CoinFlip = (() => {
           yOff         = -(maxHeight * (1 - tE * 1.0));
           flipProgress = 0.6 + tE * 0.4;   // selesai sisa 40% flip
           scaleX       = getScaleX(flipProgress);
-          side         = getSide(scaleX, flipProgress);
+          side         = getSide(scaleX);
 
         } else {
           /* ── Landing bounce ── */
@@ -327,18 +326,11 @@ const CoinFlip = (() => {
           /* Dari posisi sedikit di bawah, bounce ke 0 */
           yOff = CR * 0.08 * (1 - tE);
 
-          /* scaleX akhir descent (progress=1) → lerp smooth ke target final
-             supaya tidak tiba-tiba loncat */
-          const scaleXFromDescent = getScaleX(1);
-          const scaleXFinal       = result === startSide ? 1 : -1;
-          const lerpT             = Math.min(t / 0.35, 1);   // selesai dalam 35% pertama landing
-          const lerpE             = 1 - Math.pow(1 - lerpT, 3);
-          scaleX       = scaleXFromDescent + (scaleXFinal - scaleXFromDescent) * lerpE;
+          /* scaleX = posisi akhir flip (progress=1), konsisten dengan getScaleX */
+          const scaleXFinal = result === startSide ? 1 : -1;
+          scaleX       = scaleXFinal;
           flipProgress = 1;
-          /* side ikut scaleX: kalau masih di sisi lain, tunjukkan sisi yang sesuai */
-          side = scaleX >= 0 ? startSide : (startSide === 'heads' ? 'tails' : 'heads');
-          /* Setelah lerp selesai, paksa ke result */
-          if (lerpT >= 1) side = result;
+          side         = getSide(scaleX);
 
           if (e >= T.end) {
             drawCoin(scaleXFinal, 0, side, 1);
