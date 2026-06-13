@@ -1159,6 +1159,7 @@ body::after {
   .coin-canvas-wrap { width: 220px; height: 220px; }
 }
 
+
 /* ══════════════════════════════════════
    SPACEMAN — Crash Game
 ══════════════════════════════════════ */
@@ -1443,6 +1444,7 @@ body::after {
   color: #ffb347;
   text-shadow: 0 0 20px rgba(255,150,40,0.5);
 }
+
 
 /* ══════════════════════════════════════
    HORSE RACE
@@ -2299,7 +2301,7 @@ body::after {
 }
 
 .bj-card-rank-top {
-  font-family: 'Syne', sans-serif;
+  font-family: 'Georgia', 'Times New Roman', serif;
   font-size: 13px;
   font-weight: 800;
   line-height: 1;
@@ -2307,7 +2309,7 @@ body::after {
 }
 
 .bj-card-rank-bot {
-  font-family: 'Syne', sans-serif;
+  font-family: 'Georgia', 'Times New Roman', serif;
   font-size: 13px;
   font-weight: 800;
   line-height: 1;
@@ -2317,6 +2319,16 @@ body::after {
 
 .bj-card-suit {
   font-size: 26px;
+  line-height: 1;
+  text-align: center;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.bj-card-face {
+  font-size: 22px;
   line-height: 1;
   text-align: center;
   position: absolute;
