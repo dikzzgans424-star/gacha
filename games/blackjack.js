@@ -66,50 +66,16 @@ const Blackjack = (() => {
   function _isBlackjack(hand)  { return hand.length === 2 && _handValue(hand) === 21; }
 
   /* ── Render kartu HTML ── */
-  /* Gambar wajah J/Q/K */
-  const FACE_ART = {
-    J: { heads: '♞', label: 'J', title: 'JACK'  },
-    Q: { heads: '♛', label: 'Q', title: 'QUEEN' },
-    K: { heads: '♚', label: 'K', title: 'KING'  },
-  };
-
   function _cardHTML(card, hidden = false) {
     if (hidden) {
       return `<div class="bj-card bj-card-back">
         <div class="bj-card-inner">🂠</div>
       </div>`;
     }
-    const isRed  = RED_SUITS.has(card.suit);
-    const isFace = ['J','Q','K'].includes(card.rank);
-    const color  = isRed ? 'bj-card-red' : 'bj-card-black';
-
-    if (isFace) {
-      const art = FACE_ART[card.rank];
-      return `<div class="bj-card ${color} bj-card-deal bj-card-face">
-        <div class="bj-card-rank-top">${card.rank}<span class="bj-suit-small">${card.suit}</span></div>
-        <div class="bj-face-art">
-          <div class="bj-face-crown">${art.heads}</div>
-          <div class="bj-face-title">${art.title}</div>
-          <div class="bj-face-suit">${card.suit}</div>
-        </div>
-        <div class="bj-card-rank-bot">${card.rank}<span class="bj-suit-small">${card.suit}</span></div>
-      </div>`;
-    }
-
-    if (card.rank === 'A') {
-      return `<div class="bj-card ${color} bj-card-deal bj-card-ace">
-        <div class="bj-card-rank-top">A</div>
-        <div class="bj-ace-center">${card.suit}</div>
-        <div class="bj-card-rank-bot">A</div>
-      </div>`;
-    }
-
-    /* Kartu angka: tampilkan simbol suit sebanyak angkanya, maks 10 */
-    const num     = parseInt(card.rank);
-    const symbols = Array(num).fill(card.suit).join(' ');
-    return `<div class="bj-card ${color} bj-card-deal">
+    const isRed = RED_SUITS.has(card.suit);
+    return `<div class="bj-card ${isRed ? 'bj-card-red' : 'bj-card-black'} bj-card-deal">
       <div class="bj-card-rank-top">${card.rank}</div>
-      <div class="bj-card-pips">${card.suit}</div>
+      <div class="bj-card-suit">${card.suit}</div>
       <div class="bj-card-rank-bot">${card.rank}</div>
     </div>`;
   }

@@ -245,7 +245,10 @@ const Spaceman = (() => {
       _drawIdleDeco(ctx, W, H);
     }
 
-    /* Trail tidak ditampilkan (astronot diam di tempat) */
+    /* ── Trail ── */
+    if (_trail.length > 1 && (_phase === 'flying' || _phase === 'done')) {
+      _drawTrail(ctx);
+    }
 
     /* ── Posisi astronot ── */
     _updatePos(W, H);
@@ -415,23 +418,24 @@ const Spaceman = (() => {
   ───────────────────────────────── */
   function _updatePos(W, H) {
     if (_phase === 'ready') {
-      _ax   = W * 0.5;
-      _ay   = H * 0.72 + Math.sin(_floatT) * 3;
+      _tx   = W * 0.35;
+      _ty   = H * 0.76 + Math.sin(_floatT) * 3;
+      _ax   = _tx; _ay = _ty;
       _tilt = 0;
     } else if (_phase === 'flying') {
-      /* Astronot DIAM di tengah-bawah canvas.
-         Gerak "terbang" hanya dari: tilt, micro-bob, dan jet flame.
-         Planet juga diam di tengah-atas. */
-      const bobY  = Math.sin(_floatT * 1.1) * 4;
-      const bobX  = Math.cos(_floatT * 0.7) * 2;
-      _ax   = W * 0.5  + bobX;
-      _ay   = H * 0.68 + bobY;
-      /* Tilt pose terbang — miring ke kanan atas */
-      _tilt = -0.40 + Math.sin(_floatT * 0.6) * 0.06;
-      /* Tidak ada trail — astronot tidak kemana-mana */
+      const prog = Math.min(1, (_multiplier - 1.0) / 5.0);
+      _tx   = W * 0.18 + prog * W * 0.60;
+      _ty   = H * 0.82 - Math.pow(prog, 1.3) * H * 0.62;
+      _tilt = -0.42 - prog * 0.18;
+      _ax  += (_tx - _ax) * 0.05;
+      _ay  += (_ty - _ay) * 0.05;
+      _trail.push({ x: _ax, y: _ay });
+      if (_trail.length > TRAIL_MAX) _trail.shift();
     } else if (_phase === 'crashed') {
-      _ax   = W * 0.5;
-      _ay   = H * 0.63 + Math.sin(_balloonT * 0.9) * 4;
+      _tx = W * 0.5;
+      _ty = H * 0.63 + Math.sin(_balloonT * 0.9) * 4;
+      _ax += (_tx - _ax) * 0.04;
+      _ay += (_ty - _ay) * 0.04;
       _tilt = 0;
     }
   }
@@ -444,9 +448,9 @@ const Spaceman = (() => {
      - Panah merah berputar di orbit (seperti gambar 2 & 4)
   ───────────────────────────────── */
   function _drawFlyingPlanet(ctx, W, H) {
-    /* Planet selalu di tengah-atas canvas, diam */
-    const cx = W * 0.5;
-    const cy = H * 0.28 - _planetS * 8;
+    /* Planet muncul di atas astronot */
+    const cx = _ax + 15;
+    const cy = _ay - 80 - _planetS * 20;
     const pr = 44 * _planetS;
     if (pr < 3) return;
 
