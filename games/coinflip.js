@@ -242,14 +242,8 @@ const CoinFlip = (() => {
   function easeOutCubic(t) { return 1 - Math.pow(1-t, 3); }
 
   async function runFlip(result) {
-    /*
-     * PHASES (ms):
-     *   0   → 200  : anticipation — koin sedikit turun (windup)
-     *   200 → 900  : launch — koin naik ke puncak, flip cepat
-     *   900 → 1800 : apex + descent — flip makin lambat, koin turun
-     *   1800→ 2400 : landing — bounce settle, reveal sisi final
-     */
-    const D = { windup: 200, launch: 700, descent: 900, landing: 600 };
+    const startSide = 'heads';
+    const D = { windup: 180, launch: 650, descent: 950, landing: 550 };
     const T = {
       launch:  D.windup,
       descent: D.windup + D.launch,
@@ -257,98 +251,85 @@ const CoinFlip = (() => {
       end:     D.windup + D.launch + D.descent + D.landing,
     };
 
-    /* Total flips: ganjil = balik sisi, genap = sisi sama
-       Kita kontrol result dengan jumlah flip */
-    const BASE_FLIPS = 6;   // putaran penuh
-    /* Kita track fase mana sisi "heads" menghadap atas:
-       di scaleX = +1 → sisi awal (heads), scaleX = -1 → sisi lain */
-    const startSide = 'heads';   // koin selalu mulai heads
-    const wantFlip  = (result !== startSide); // perlu ganjil jumlah half-flip?
+    /* Hitung halfFlips agar sisi akhir selalu benar DAN
+       posisi scaleX di akhir descent (progress=1) = posisi awal landing
+       — tidak ada lompatan sama sekali.
+       Kunci: cari halfFlips sehingga cos(halfFlips * π) = target scaleX final */
+    const scaleXFinal = (result === startSide) ? 1 : -1;
+    /* Minimal 10 half-flip (5 putaran penuh), tambah hingga landing benar */
+    let halfFlips = 10;
+    while (Math.cos(halfFlips * Math.PI) !== scaleXFinal) halfFlips++;
 
-    /* Jumlah half-flip total = BASE_FLIPS*2 + (wantFlip ? 1 : 0) */
-    const halfFlips = BASE_FLIPS * 2 + (wantFlip ? 1 : 0);
-
-    /* Fungsi: dari progress 0→1, hitung scaleX koin */
     function getScaleX(progress) {
-      /* progress 0→1 mewakili halfFlips kali bolak-balik -1..+1 */
-      const angle = progress * halfFlips * Math.PI;
-      return Math.cos(angle);
+      return Math.cos(progress * halfFlips * Math.PI);
+    }
+    function getSide(progress) {
+      const idx = Math.floor(progress * halfFlips);
+      return (idx % 2 === 0) ? startSide
+           : (startSide === 'heads' ? 'tails' : 'heads');
     }
 
-    /* Fungsi: tentukan sisi yang menghadap dari scaleX */
-    function getSide(scaleX, progress) {
-      const halfIdx = Math.floor(progress * halfFlips);
-      return (halfIdx % 2 === 0) ? 'heads' : 'tails';
+    const maxHeight = CR * 2.8;
+    const start     = performance.now();
+
+    /* Kecepatan flip: cepat di launch, melambat di descent */
+    function getFlipProgress(t_launch, t_descent) {
+      /* launch: 0→0.55 dengan easeInOut (akselerasi lalu stabil) */
+      /* descent: 0.55→1 dengan easeOutCubic (melambat) */
+      if (t_descent === undefined) {
+        return easeInOut(t_launch) * 0.55;
+      }
+      return 0.55 + easeOutCubic(t_descent) * 0.45;
     }
-
-    const maxHeight = CR * 2.8;   // px naik dari posisi normal
-
-    const start = performance.now();
 
     return new Promise(resolve => {
       function frame(now) {
         const e = now - start;
-        let scaleX, yOff, flipProgress, side;
+        let scaleX, yOff, fp, side;
 
         if (e < T.launch) {
-          /* ── Windup: turun sedikit ── */
+          /* Windup */
           const t = e / D.windup;
-          scaleX       = 1;
-          yOff         = Math.sin(t * Math.PI) * CR * 0.12;   // turun 12%
-          flipProgress = 0;
-          side         = 'heads';
+          scaleX = 1;
+          yOff   = Math.sin(t * Math.PI) * CR * 0.10;
+          fp     = 0;
+          side   = startSide;
 
         } else if (e < T.descent) {
-          /* ── Launch → apex: naik + flip cepat ── */
-          const t    = (e - T.launch) / D.launch;
-          const tE   = easeInOut(t);
-
-          /* Naik parabola */
-          yOff         = -(Math.sin(tE * Math.PI * 0.5) * maxHeight);
-          flipProgress = tE * 0.6;   // selesai 60% flip saat di puncak
-          scaleX       = getScaleX(flipProgress);
-          side         = getSide(scaleX, flipProgress);
+          /* Launch: naik + flip akselerasi */
+          const t  = (e - T.launch) / D.launch;
+          fp       = getFlipProgress(t);
+          scaleX   = getScaleX(fp);
+          side     = getSide(fp);
+          yOff     = -(Math.sin(easeInOut(t) * Math.PI * 0.5) * maxHeight);
 
         } else if (e < T.landing) {
-          /* ── Descent: turun + flip melambat ── */
+          /* Descent: turun + flip melambat */
           const t  = (e - T.descent) / D.descent;
-          const tE = easeOutCubic(t);
-
-          yOff         = -(maxHeight * (1 - tE * 1.0));
-          flipProgress = 0.6 + tE * 0.4;   // selesai sisa 40% flip
-          scaleX       = getScaleX(flipProgress);
-          side         = getSide(scaleX, flipProgress);
+          fp       = getFlipProgress(undefined, t);
+          scaleX   = getScaleX(fp);
+          side     = getSide(fp);
+          /* Saat fp=1: scaleX = scaleXFinal (cos(halfFlips*π)) — persis! */
+          yOff     = -(maxHeight * (1 - easeOutCubic(t)));
 
         } else {
-          /* ── Landing bounce ── */
-          const t  = (e - T.landing) / D.landing;
-          const tE = easeOutBounce(Math.min(t, 1));
-
-          /* Dari posisi sedikit di bawah, bounce ke 0 */
-          yOff = CR * 0.08 * (1 - tE);
-
-          /* scaleX akhir descent (progress=1) → lerp smooth ke target final
-             supaya tidak tiba-tiba loncat */
-          const scaleXFromDescent = getScaleX(1);
-          const scaleXFinal       = result === startSide ? 1 : -1;
-          const lerpT             = Math.min(t / 0.35, 1);   // selesai dalam 35% pertama landing
-          const lerpE             = 1 - Math.pow(1 - lerpT, 3);
-          scaleX       = scaleXFromDescent + (scaleXFinal - scaleXFromDescent) * lerpE;
-          flipProgress = 1;
-          /* side ikut scaleX: kalau masih di sisi lain, tunjukkan sisi yang sesuai */
-          side = scaleX >= 0 ? startSide : (startSide === 'heads' ? 'tails' : 'heads');
-          /* Setelah lerp selesai, paksa ke result */
-          if (lerpT >= 1) side = result;
+          /* Landing bounce — fp sudah = 1, scaleX sudah = scaleXFinal,
+             TIDAK ada lerp/snap apapun — langsung sambung dari descent */
+          const t  = Math.min((e - T.landing) / D.landing, 1);
+          scaleX   = scaleXFinal;
+          side     = result;
+          yOff     = CR * 0.06 * (1 - easeOutBounce(t));
+          fp       = 1;
 
           if (e >= T.end) {
-            drawCoin(scaleXFinal, 0, side, 1);
+            drawCoin(scaleXFinal, 0, result, 1);
             updateShadow(0, 1);
             resolve();
             return;
           }
         }
 
-        drawCoin(scaleX, yOff, side, flipProgress);
+        drawCoin(scaleX, yOff, side, fp);
         updateShadow(yOff, scaleX);
         _raf = requestAnimationFrame(frame);
       }

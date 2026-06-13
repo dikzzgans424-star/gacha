@@ -324,93 +324,110 @@ const Roulette = (() => {
   }
 
   /* ══════════════════════════════════════
-     ANIMASI SPIN
-     - Arah: CCW (negatif, kiri terus)
-     - Phase 1 (4s) : kecepatan penuh langsung (fast), lalu decel smooth
-     - Phase 2 (1s) : bola jatuh ke slot (orbit mengecil)
-     - Phase 3 (0.8s): bounce settle
+     POSISI BOLA IDLE — disambung ke spin tanpa snap
   ══════════════════════════════════════ */
-  function easeOut3(t)      { return 1 - Math.pow(1-t, 3); }
-  function easeOut5(t)      { return 1 - Math.pow(1-t, 5); }
+  let _ballIdleAng = -Math.PI / 2;
+
+  /* ══════════════════════════════════════
+     ANIMASI SPIN
+     Phase 1 (2.2s): kencang konstan (langsung dari idle, tanpa snap)
+     Phase 2 (3.5s): melambat smooth pakai easeOutQuint (sangat halus)
+     Phase 3 (0.9s): jatuh ke slot
+     Phase 4 (0.7s): bounce settle
+  ══════════════════════════════════════ */
+  function easeOutQuint(t) { return 1 - Math.pow(1-t, 5); }
+  function easeOut5(t)     { return 1 - Math.pow(1-t, 5); }
   function easeOutBounce(t) {
     const n = 7.5625, d = 2.75;
-    if (t < 1/d)       return n*t*t;
-    if (t < 2/d)       return n*(t-=1.5/d)*t+0.75;
-    if (t < 2.5/d)     return n*(t-=2.25/d)*t+0.9375;
+    if (t < 1/d)     return n*t*t;
+    if (t < 2/d)     return n*(t-=1.5/d)*t+0.75;
+    if (t < 2.5/d)   return n*(t-=2.25/d)*t+0.9375;
     return n*(t-=2.625/d)*t+0.984375;
   }
 
   async function runSpin(finalSlotIdx) {
-    /* Kecepatan awal (rad/ms), negatif = CCW = kiri */
-    const V_PEAK = -0.012;   // langsung cepat
+    /* Kecepatan puncak CCW (negatif = kiri) */
+    const V_PEAK = -0.0058;
 
     const D = {
-      decel:  5500,   // decelerasi panjang: cepat → lambat
+      fast:   2200,   // kencang konstan
+      decel:  3500,   // melambat smooth
       fall:   900,
-      bounce: 800,
+      bounce: 700,
     };
     const T = {
-      fall:   D.decel,
-      bounce: D.decel + D.fall,
-      end:    D.decel + D.fall + D.bounce,
+      decel:  D.fast,
+      fall:   D.fast + D.decel,
+      bounce: D.fast + D.decel + D.fall,
+      end:    D.fast + D.decel + D.fall + D.bounce,
     };
 
-    /* Total sudut selama decel: integral ease-out dari V_PEAK → 0
-       = V_PEAK * D.decel * 0.5 (area di bawah kurva) */
-    const A_decel = V_PEAK * D.decel * 0.5;
+    /* Akumulasi sudut tiap phase (CCW = negatif) */
+    const A_fast  = V_PEAK * D.fast;
+    /* Decel: integral easeOutQuint(t) dt dari 0→1
+       = t - (1-t)^6/6 |_0^1 → tidak mudah, pakai approx: 1/6 * D * V_PEAK */
+    const A_decel = V_PEAK * D.decel * (1/6);
 
-    /* Bola mulai di posisi atas (12 o'clock = -π/2) agar langsung terlihat berputar */
-    const ballStart = -Math.PI / 2;
+    /* ── Mulai dari posisi idle saat ini (TIDAK snap) ── */
+    const ballStart = _ballIdleAng;
+    const endDecel  = ballStart + A_fast + A_decel;
 
-    /* Posisi bola akhir phase decel */
-    const endDecel = ballStart + A_decel;
+    /* ── Target slot ──
+       Harus SAMA PERSIS dengan midAng di drawWheel:
+       midAng = finalSlotIdx * SLOT_ANG - π/2
+       Bola bergerak CCW, kita cari diff negatif terpendek. */
+    const slotAng = finalSlotIdx * SLOT_ANG - Math.PI / 2;
 
-    /* Target slot: harus sama persis dengan midAng di drawWheel
-       midAng = i * SLOT_ANG - π/2  (CW dari atas)
-       Bola bergerak CCW, kita normalisasi diff agar selalu CCW */
-    const slotAngTarget = finalSlotIdx * SLOT_ANG - Math.PI / 2;
-
-    let diff = slotAngTarget - endDecel;
+    /* Normalisasi diff agar SELALU CCW (negatif) dan minimal 2 putaran penuh
+       supaya bola melewati slot dulu (tidak langsung jatuh) */
+    let diff = slotAng - endDecel;
     diff = -(( (-diff) % (Math.PI*2) + Math.PI*2 ) % (Math.PI*2));
-    if (diff === 0) diff = -Math.PI * 2;
-    if (diff > -Math.PI * 2) diff -= Math.PI * 2;
+    if (diff === 0)           diff = -Math.PI * 2;
+    if (diff > -Math.PI * 4) diff -= Math.PI * 2;  // paksa min 2 putaran
 
-    /* finalAng = posisi bola setelah jatuh ke slot */
-    const finalAng = endDecel + diff;
-
-    let ballAng   = ballStart;
-    let ballOrbit = R * rTrack;
-
-    const t0 = performance.now();
+    const finalAng  = endDecel + diff;
+    let   ballAng   = ballStart;
+    let   ballOrbit = R * rTrack;
+    const t0        = performance.now();
 
     return new Promise(resolve => {
       function frame(now) {
         const e    = now - t0;
         let   done = false;
 
-        if (e < D.decel) {
-          /* Phase 1: cepat → lambat (ease-out cubic dari V_PEAK → 0) */
-          const t  = e / D.decel;
-          const tE = easeOut3(t);
-          ballAng   = ballStart + A_decel * tE;
+        if (e < D.fast) {
+          /* Phase 1: kencang konstan — sambung langsung dari idle */
+          ballAng   = ballStart + V_PEAK * e;
+          ballOrbit = R * rTrack;
+
+        } else if (e < T.fall) {
+          /* Phase 2: melambat sangat smooth (easeOutQuint)
+             Kecepatan sesaat = V_PEAK * (1-t)^4 → makin lambat, tidak sentakan */
+          const t   = (e - D.fast) / D.decel;
+          const tE  = easeOutQuint(t);
+          /* posisi = integral kecepatan = A_fast + V_PEAK*D.decel*integral(1-(1-t)^4)
+             Pakai rumus eksak: t - (1-t)^5/5 + 1/5  */
+          const pos = t - (Math.pow(1-t, 5) - 1) / 5;
+          ballAng   = ballStart + A_fast + V_PEAK * D.decel * pos;
           ballOrbit = R * rTrack;
 
         } else if (e < T.bounce) {
-          /* Phase 2: jatuh ke slot */
-          const t  = (e - D.decel) / D.fall;
+          /* Phase 3: jatuh ke slot */
+          const t  = (e - T.fall) / D.fall;
           const tE = easeOut5(t);
           ballAng   = endDecel + diff * tE;
           ballOrbit = R * (rTrack + (rSlot - rTrack) * tE);
 
         } else {
-          /* Phase 3: bounce settle */
+          /* Phase 4: bounce settle */
           const t  = Math.min((e - T.bounce) / D.bounce, 1);
           const tE = easeOutBounce(t);
           ballAng   = finalAng;
-          ballOrbit = R * rSlot + R * 0.025 * (1 - tE);
+          ballOrbit = R * rSlot + R * 0.022 * (1 - tE);
           if (e >= T.end) done = true;
         }
 
+        _ballIdleAng = ballAng;
         drawFrame(ballOrbit, ballAng);
         if (done) { resolve(); return; }
         _raf = requestAnimationFrame(frame);
@@ -443,7 +460,8 @@ const Roulette = (() => {
 
     requestAnimationFrame(() => {
       initCanvas();
-      drawFrame(R * rTrack, -Math.PI * 0.5);
+      _ballIdleAng = -Math.PI / 2;
+      drawFrame(R * rTrack, _ballIdleAng);
     });
   }
 

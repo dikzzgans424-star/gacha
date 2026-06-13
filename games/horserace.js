@@ -325,9 +325,10 @@ const HorseRace = (() => {
       });
     }
 
-    /* Speed awal semua kuda sama (base + sedikit noise) */
-    _horses.forEach(h => {
-      h.speed = BASE_SPEED + (Math.random() * 0.2 - 0.1);
+    /* Speed awal tiap kuda BEDA-BEDA — ada yang langsung ngebut, ada yang pelan */
+    _horses.forEach((h, i) => {
+      /* Distribusi speed awal: 0.6 - 1.8 px/frame, masing-masing acak bebas */
+      h.speed = 0.65 + Math.random() * 1.15;
     });
 
     _raceStarted = true;
@@ -392,23 +393,22 @@ const HorseRace = (() => {
            - rankDiff = 0                                → speed normal */
         let speedAdj = 0;
         if (rankDiff > 0) {
-          /* Kejar → boost, makin jauh makin kenceng tapi ada cap */
-          speedAdj = Math.min(rankDiff * 0.18, 0.7);
-          /* Burst dramatis: kalau beda 2+ rank dan zona akhir → lebih kenceng */
-          if (rankDiff >= 2 && zone === ZONES - 1) speedAdj += 0.35;
+          /* Kejar → boost proporsional, makin jauh makin kenceng */
+          speedAdj = Math.min(rankDiff * 0.28, 1.1);
+          if (rankDiff >= 2 && zone === ZONES - 1) speedAdj += 0.55;
         } else if (rankDiff < 0) {
-          /* Terlalu depan → sedikit melambat supaya yang lain bisa nyusul dulu */
-          speedAdj = Math.max(rankDiff * 0.12, -0.4);
+          /* Terlalu depan → melambat cukup signifikan */
+          speedAdj = Math.max(rankDiff * 0.22, -0.65);
         }
 
-        /* Random micro-variance biar tidak kelihatan robotik */
+        /* Noise lebih besar dan interval lebih pendek → tidak berderetan */
         h._nextVar--;
         if (h._nextVar <= 0) {
-          h._speedVar = (Math.random() - 0.5) * 0.25;
-          h._nextVar  = 18 + Math.floor(Math.random() * 22);
+          h._speedVar = (Math.random() - 0.5) * 0.7;
+          h._nextVar  = 8 + Math.floor(Math.random() * 14);
         }
 
-        const spd = Math.max(0.55, h.speed + speedAdj + h._speedVar);
+        const spd = Math.max(0.4, h.speed + speedAdj + h._speedVar);
         h.x       += spd;
         h.legT    += spd * 0.18;
         h.wobbleT += 0.12;
