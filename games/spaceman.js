@@ -268,12 +268,13 @@ const Spaceman = (() => {
     /* ── Posisi astronot ── */
     _updatePos(W, H);
 
-    /* ── Planet terbang ── */
-    if (_phase === 'flying' || _phase === 'done') {
-      // Planet muncul dan membesar berdasarkan waktu terbang, bukan multiplier
-      const ts = Math.min(1, _flyT / 2.0);   // full size dalam 2 detik
-      _planetS += (ts - _planetS) * 0.05;
-      _drawFlyingPlanet(ctx, W, H);
+    /* ── Planet SELALU di tengah-atas, fixed, hanya orbit yang berputar ── */
+    {
+      // Planet muncul saat start (flying), tersedia juga di crash
+      const ts = (_phase === 'flying' || _phase === 'crashed' || _phase === 'done')
+        ? Math.min(1, _flyT / 1.2) : 0;
+      _planetS += (ts - _planetS) * 0.06;
+      if (_planetS > 0.05) _drawFlyingPlanet(ctx, W, H);
     }
 
     /* ── Crash overlay + balon ── */
@@ -439,22 +440,24 @@ const Spaceman = (() => {
       _ay   = H * 0.80;
       _tilt = 0;
     } else if (_phase === 'flying') {
-      /* Animasi naik terus menerus berdasarkan WAKTU (_flyT), bukan crashAt
-         supaya animasi selalu bergerak berapapun nilai crashAt              */
-      // Phase 1 (0–1.5s): naik cepat dari bawah ke posisi tengah
-      // Phase 2 (>1.5s): mengambang pelan naik sambil goyang sedikit
-      const risePhase  = Math.min(1, _flyT / 1.5);             // 0→1 dalam 1.5s
-      const riseE      = 1 - Math.pow(1 - risePhase, 2.5);     // easeOut kuat
-      const floatDrift = Math.sin(_flyT * 0.8) * W * 0.012;    // goyang kanan-kiri
-      const slowRise   = (_flyT > 1.5) ? (_flyT - 1.5) * H * 0.012 : 0; // naik pelan terus
+      /* Phase 1 (0–1.5s): naik cepat dari bawah ke posisi di bawah planet
+         Phase 2 (>1.5s): DIAM di bawah planet, cuma float kecil atas-bawah */
+      const risePhase = Math.min(1, _flyT / 1.5);
+      const riseE     = 1 - Math.pow(1 - risePhase, 3);   // easeOut kuat
 
-      _tx   = W * 0.38 + riseE * W * 0.12 + floatDrift;
-      _ty   = H * 0.80 - riseE * H * 0.42 - slowRise;
-      _ty   = Math.max(H * 0.12, _ty);                          // jangan keluar atas
-      _tilt = -0.25 - riseE * 0.18 + Math.sin(_flyT * 0.6) * 0.04;
+      /* Posisi target = tepat di bawah planet (planet di H*0.20, planet radius ~50) */
+      const targetX = W * 0.50;
+      const targetY = H * 0.45;   // di bawah planet, tidak kemana-mana lagi
 
-      _ax  += (_tx - _ax) * 0.04;   /* lerp lebih responsif */
-      _ay  += (_ty - _ay) * 0.04;
+      /* Float kecil hanya atas-bawah setelah sampai */
+      const floatY = risePhase >= 1 ? Math.sin(_flyT * 1.2) * 5 : 0;
+
+      _tx = W * 0.45 + riseE * (targetX - W * 0.45);
+      _ty = H * 0.80 + riseE * (targetY - H * 0.80) + floatY;
+      _tilt = -0.28 * riseE;
+
+      _ax  += (_tx - _ax) * 0.06;
+      _ay  += (_ty - _ay) * 0.06;
       _trail.push({ x: _ax, y: _ay });
       if (_trail.length > TRAIL_MAX) _trail.shift();
     } else if (_phase === 'crashed') {
@@ -478,10 +481,10 @@ const Spaceman = (() => {
      - Panah merah berputar di orbit (seperti gambar 2 & 4)
   ───────────────────────────────── */
   function _drawFlyingPlanet(ctx, W, H) {
-    /* Planet muncul di atas astronot */
-    const cx = _ax + 15;
-    const cy = _ay - 80 - _planetS * 20;
-    const pr = 44 * _planetS;
+    /* Planet FIXED di tengah-atas canvas — tidak ikut astronot */
+    const cx = W * 0.50;
+    const cy = H * 0.20;          // ~20% dari atas = tengah-atas
+    const pr = 50 * _planetS;
     if (pr < 3) return;
 
     /* Tentukan warna planet berdasarkan multiplier */
@@ -681,23 +684,10 @@ const Spaceman = (() => {
       _drawBody(ctx, 'ready');
 
     } else if (_phase === 'flying') {
-      ctx.rotate(_tilt);
-
-      /* Jetpack flame */
-      const fl = 16 + Math.sin(_jetT) * 6;
-      const fg = ctx.createLinearGradient(-9, 0, -9 - fl, 5);
-      fg.addColorStop(0,   '#ffee00');
-      fg.addColorStop(0.45,'#ff6600');
-      fg.addColorStop(1,   'rgba(255,60,0,0)');
-      ctx.beginPath();
-      ctx.moveTo(-9, 2); ctx.lineTo(-9 - fl, 6 + Math.sin(_jetT) * 3); ctx.lineTo(-9, 11);
-      ctx.fillStyle = fg; ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(-9, 4); ctx.lineTo(-9 - fl * 0.55, 7 + Math.sin(_jetT+1)*2); ctx.lineTo(-9, 10);
-      ctx.fillStyle = 'rgba(255,150,0,0.65)'; ctx.fill();
-
-      ctx.scale(0.88, 0.88);
-      _drawBody(ctx, 'flying');
+      /* Pose terbang superman — rotate -45° lalu gambar semua manual */
+      ctx.rotate(_tilt - 0.78);   /* ~45° miring ke kanan-atas */
+      ctx.scale(0.92, 0.92);
+      _drawBodyFlying(ctx);
 
     } else if (_phase === 'crashed') {
       ctx.rotate(_tilt);
@@ -805,7 +795,122 @@ const Spaceman = (() => {
     ctx.beginPath(); ctx.arc(0, -22.5, 2.2, 0, Math.PI*2); ctx.fill();
   }
 
-  /* ─── Helper: lighten hex ─── */
+  /* ─────────────────────────────────
+     POSE TERBANG (superman / miring 45°)
+     Koordinat dalam ruang SETELAH rotate -45°
+     "maju" = arah kanan (X+), "atas" = Y-
+  ───────────────────────────────── */
+  function _drawBodyFlying(ctx) {
+    /* ── Jetpack + FLAME di belakang (kiri body = X-) ── */
+    const fl = 18 + Math.sin(_jetT) * 7;
+    // Jetpack box
+    ctx.fillStyle = '#888899';
+    ctx.beginPath(); ctx.roundRect(-14, -4, 8, 10, 2); ctx.fill();
+    ctx.fillStyle = '#555566';
+    ctx.beginPath(); ctx.roundRect(-13, -2, 6, 6, 1); ctx.fill();
+    // Flame keluar ke kiri
+    const fg = ctx.createLinearGradient(-14, 3, -14 - fl, 3);
+    fg.addColorStop(0,   '#ffee00');
+    fg.addColorStop(0.4, '#ff6600');
+    fg.addColorStop(1,   'rgba(255,60,0,0)');
+    ctx.beginPath();
+    ctx.moveTo(-14, 0);
+    ctx.lineTo(-14 - fl, 3 + Math.sin(_jetT) * 3);
+    ctx.lineTo(-14, 7);
+    ctx.fillStyle = fg; ctx.fill();
+    // Inner flame
+    const fg2 = ctx.createLinearGradient(-14, 3, -14 - fl*0.6, 3);
+    fg2.addColorStop(0, '#ffffff'); fg2.addColorStop(1, 'rgba(255,200,0,0)');
+    ctx.beginPath();
+    ctx.moveTo(-14, 1.5);
+    ctx.lineTo(-14 - fl*0.6, 3 + Math.sin(_jetT+1)*2);
+    ctx.lineTo(-14, 5.5);
+    ctx.fillStyle = fg2; ctx.fill();
+
+    /* ── Cape merah berkibar ke belakang-bawah ── */
+    ctx.fillStyle = '#cc2200';
+    ctx.beginPath();
+    ctx.moveTo(-4, 2);                                      // pangkal cape di bahu kiri
+    ctx.quadraticCurveTo(-10, 8,  -20 + Math.sin(_jetT*0.4)*3, 18);   // ujung bawah
+    ctx.quadraticCurveTo(-14, 6, -4, 8);
+    ctx.closePath(); ctx.fill();
+    // Highlight cape
+    ctx.fillStyle = 'rgba(255,100,60,0.3)';
+    ctx.beginPath();
+    ctx.moveTo(-4, 3);
+    ctx.quadraticCurveTo(-8, 7, -14, 14);
+    ctx.quadraticCurveTo(-10, 7, -4, 6);
+    ctx.closePath(); ctx.fill();
+
+    /* ── Kaki lurus ke belakang (X-) ── */
+    ctx.fillStyle = '#3344bb';
+    // Kaki atas
+    ctx.beginPath(); ctx.roundRect(-12, 4, 11, 5, 2); ctx.fill();
+    // Kaki bawah (sedikit spread)
+    ctx.beginPath(); ctx.roundRect(-12, 11, 11, 5, 2); ctx.fill();
+    // Sepatu
+    ctx.fillStyle = '#ddddee';
+    ctx.beginPath(); ctx.roundRect(-16, 3, 5, 4, 2); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(-16, 10, 5, 4, 2); ctx.fill();
+
+    /* ── Body putih ── */
+    const bg = ctx.createLinearGradient(-8, -6, 8, 8);
+    bg.addColorStop(0, '#f4f4f6'); bg.addColorStop(1, '#c8c8d2');
+    ctx.fillStyle = bg;
+    ctx.beginPath(); ctx.roundRect(-8, -6, 16, 14, 4); ctx.fill();
+
+    /* Badge biru di dada */
+    ctx.fillStyle = '#2255cc';
+    ctx.beginPath(); ctx.roundRect(-4, -2, 8, 5, 2); ctx.fill();
+    ctx.fillStyle = '#55ccff';
+    ctx.beginPath(); ctx.arc(0, 0.5, 1.5, 0, Math.PI*2); ctx.fill();
+
+    /* ── Tangan kanan MENJULUR ke depan (X+) ── */
+    ctx.fillStyle = '#e2e2e8';
+    // Lengan atas
+    ctx.beginPath(); ctx.roundRect(8, -5, 10, 4, 2); ctx.fill();
+    // Lengan bawah + tangan mengepal
+    ctx.beginPath(); ctx.roundRect(18, -6, 9, 5, 2.5); ctx.fill();
+    // Tangan kiri ke belakang sedikit
+    ctx.beginPath(); ctx.roundRect(-10, -5, 6, 4, 2); ctx.fill();
+
+    /* ── Helm ── */
+    const hg = ctx.createRadialGradient(-3, -14, 2, 0, -12, 13);
+    hg.addColorStop(0, '#ffffff'); hg.addColorStop(0.6, '#eaeaee'); hg.addColorStop(1, '#c2c2cc');
+    ctx.fillStyle = hg;
+    ctx.beginPath(); ctx.arc(0, -12, 13, 0, Math.PI*2); ctx.fill();
+    // Trim emas
+    ctx.strokeStyle = '#d4af5a'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, -12, 13, 0, Math.PI*2); ctx.stroke();
+
+    /* Visor biru */
+    const vg = ctx.createRadialGradient(-2, -14, 1, 1, -12, 8.5);
+    vg.addColorStop(0,   '#88ddff');
+    vg.addColorStop(0.4, '#2288cc');
+    vg.addColorStop(1,   '#003d99');
+    ctx.fillStyle = vg;
+    ctx.beginPath(); ctx.ellipse(0, -12, 8, 7, 0, 0, Math.PI*2); ctx.fill();
+
+    /* Refleksi visor */
+    ctx.fillStyle = 'rgba(255,255,255,0.52)';
+    ctx.beginPath(); ctx.ellipse(-3, -16, 2.5, 1.7, -0.4, 0, Math.PI*2); ctx.fill();
+
+    /* Mata */
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.roundRect(-5.5, -15, 4, 4, 1.5); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(1.5, -15, 4, 4, 1.5); ctx.fill();
+    ctx.fillStyle = '#44aaff';
+    ctx.beginPath(); ctx.arc(-3.5, -13, 1.3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(3.5,  -13, 1.3, 0, Math.PI*2); ctx.fill();
+
+    /* Antena */
+    ctx.strokeStyle = '#d4af5a'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, -25); ctx.lineTo(0, -21); ctx.stroke();
+    ctx.fillStyle = '#d4af5a';
+    ctx.beginPath(); ctx.arc(0, -26.5, 2.2, 0, Math.PI*2); ctx.fill();
+  }
+
+
   function _lighten(hex, t) {
     const h = parseInt(hex.slice(1), 16);
     const r = (h>>16)&0xff, g = (h>>8)&0xff, b = h&0xff;
