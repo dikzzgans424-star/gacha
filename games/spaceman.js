@@ -103,15 +103,14 @@ const Spaceman = (() => {
         <div class="spaceman-canvas-wrap" id="smWrap">
           <canvas id="smCanvas"></canvas>
         </div>
-        <div class="sm-btn-row" id="smBtnRow" style="display:flex;gap:10px;margin:10px 0;">
-          <button class="sm-btn sm-start"   id="smStartBtn" onclick="Spaceman._start()"
-            style="flex:1;padding:14px 0;font-size:16px;font-weight:700;border-radius:10px;border:none;cursor:pointer;background:linear-gradient(135deg,#4caf82,#2d8a5e);color:#fff;letter-spacing:1px;transition:opacity .2s;">
-            ▶ MULAI
-          </button>
-          <button class="sm-btn sm-cashout" id="smCashBtn"  onclick="Spaceman._cashout()" disabled
-            style="flex:1;padding:14px 0;font-size:16px;font-weight:700;border-radius:10px;border:none;cursor:pointer;background:linear-gradient(135deg,#f5a623,#e07b00);color:#fff;letter-spacing:1px;opacity:0.4;transition:opacity .2s;">
+        <div class="sm-btn-row" id="smBtnRow">
+          <button class="sm-btn sm-btn-cashout" id="smCashBtn" onclick="Spaceman._cashout()" disabled>
             💰 CASHOUT
           </button>
+          <button class="sm-btn sm-btn-start" id="smStartBtn" onclick="Spaceman._start()">
+            ▶ MULAI
+          </button>
+          <div></div>
         </div>
         <div class="spaceman-info-row">
           <div class="spaceman-info-item">
@@ -137,7 +136,7 @@ const Spaceman = (() => {
     _crashAt     = _calcCrashAt(_isWin);
 
     const W = _cv._lw, H = _cv._lh;
-    _ax = W * 0.35; _ay = H * 0.78;
+    _ax = W * 0.15; _ay = H * 0.85;
     _tx = _ax;      _ty = _ay;
 
     _rafId = requestAnimationFrame(_loop);
@@ -174,8 +173,8 @@ const Spaceman = (() => {
     _phase = 'flying';
     const sb = document.getElementById('smStartBtn');
     const cb = document.getElementById('smCashBtn');
-    if (sb) { sb.disabled = true; sb.textContent = '🚀 Terbang!'; sb.style.opacity = '0.4'; }
-    if (cb) { cb.disabled = false; cb.classList.add('active'); cb.style.opacity = '1'; cb.style.cursor = 'pointer'; }
+    if (sb) { sb.disabled = true; sb.classList.add('used'); sb.textContent = '🚀'; }
+    if (cb) { cb.disabled = false; cb.classList.add('active'); }
     const st = document.getElementById('smStatus');
     if (st) st.textContent = 'Astronot sedang terbang!';
     _tickTimer = setInterval(_tick, TICK_MS);
@@ -195,7 +194,7 @@ const Spaceman = (() => {
     clearInterval(_tickTimer);
     const cb = document.getElementById('smCashBtn');
     const sb = document.getElementById('smStartBtn');
-    if (cb) { cb.disabled = true; cb.classList.remove('active'); }
+    if (cb) { cb.disabled = true; cb.classList.remove('active'); cb.classList.add('success'); }
     if (sb) { sb.disabled = true; }
     const bet   = _gacha.betAmount || (_gacha.money / 1000);
     const prize = Math.floor(bet * _multiplier * 1000 * 0.95);
@@ -435,26 +434,29 @@ const Spaceman = (() => {
   ───────────────────────────────── */
   function _updatePos(W, H) {
     if (_phase === 'ready') {
-      /* Tegak berdiri di tanah — posisi tetap */
-      _ax   = W * 0.42;
-      _ay   = H * 0.80;
+      /* Tegak berdiri di tanah — posisi tetap (kiri-bawah, sesuai start diagonal) */
+      _ax   = W * 0.20;
+      _ay   = H * 0.82;
       _tilt = 0;
     } else if (_phase === 'flying') {
-      /* Phase 1 (0–1.5s): naik cepat dari bawah ke posisi di bawah planet
-         Phase 2 (>1.5s): DIAM di bawah planet, cuma float kecil atas-bawah */
+      /* Phase 1 (0–1.5s): terbang diagonal dari kiri-bawah ke kanan-atas (bawah planet)
+         Phase 2 (>1.5s): float kecil di posisi bawah planet */
       const risePhase = Math.min(1, _flyT / 1.5);
       const riseE     = 1 - Math.pow(1 - risePhase, 3);   // easeOut kuat
 
-      /* Posisi target = tepat di bawah planet (planet di H*0.20, planet radius ~50) */
-      const targetX = W * 0.50;
-      const targetY = H * 0.45;   // di bawah planet, tidak kemana-mana lagi
+      /* Start kiri-bawah → target kanan-atas tepat di bawah planet */
+      const startX  = W * 0.15;
+      const startY  = H * 0.85;
+      const targetX = W * 0.55;   // geser ke kanan supaya lintasan diagonal
+      const targetY = H * 0.42;   // di bawah planet
 
-      /* Float kecil hanya atas-bawah setelah sampai */
-      const floatY = risePhase >= 1 ? Math.sin(_flyT * 1.2) * 5 : 0;
+      /* Float kecil setelah sampai */
+      const floatY = risePhase >= 1 ? Math.sin(_flyT * 1.2) * 4 : 0;
+      const floatX = risePhase >= 1 ? Math.cos(_flyT * 0.8) * 2 : 0;
 
-      _tx = W * 0.45 + riseE * (targetX - W * 0.45);
-      _ty = H * 0.80 + riseE * (targetY - H * 0.80) + floatY;
-      _tilt = -0.28 * riseE;
+      _tx = startX + riseE * (targetX - startX) + floatX;
+      _ty = startY + riseE * (targetY - startY) + floatY;
+      _tilt = 0;   /* rotasi sudah fixed di -0.78 (~45°) di _drawAstronaut */
 
       _ax  += (_tx - _ax) * 0.06;
       _ay  += (_ty - _ay) * 0.06;
