@@ -107,8 +107,10 @@ async function startSpin() {
     );
 
     if (!currentToken) { setStatus('❌ Token tidak ditemukan'); btn.disabled = false; return; }
-    if (currentToken.status === 'withdrawn') { setStatus('❌ Token sudah di-withdraw'); btn.disabled = false; return; }
     if (currentToken.balance <= 0) { setStatus('❌ Saldo token habis'); btn.disabled = false; return; }
+
+    /* ── Anti-refresh: simpan token ke localStorage ── */
+    localStorage.setItem('miwa_token', currentToken.token);
 
     setStatus('✅ Token valid — pilih game!');
     showTokenDashboard();
@@ -181,9 +183,6 @@ function showTokenDashboard() {
       ${historyHTML}
     </div>
 
-    <button class="token-withdraw-btn" onclick="confirmWithdraw()">
-      💸 &nbsp;Withdraw Saldo ke WA
-    </button>
   `;
 
   document.querySelector('.glass-card').insertAdjacentElement('afterend', dashboard);
@@ -503,104 +502,6 @@ function continuePlaying() {
   showTokenDashboard();
 }
 
-/* ────────────────────────────────────────
-   WITHDRAW
-──────────────────────────────────────── */
-function confirmWithdraw() {
-  if (!currentToken || currentToken.balance <= 0) {
-    setStatus('⚠ Tidak ada saldo untuk di-withdraw.');
-    return;
-  }
-
-  const confirm      = document.createElement('div');
-  confirm.id         = 'withdrawConfirm';
-  confirm.className  = 'withdraw-confirm-card';
-  confirm.innerHTML  = `
-    <div class="withdraw-confirm-inner">
-      <div class="withdraw-confirm-title">💸 Konfirmasi Withdraw</div>
-      <div class="withdraw-confirm-amount">
-        ${currentToken.balance} bet
-        <span>(${formatRp(betToRp(currentToken.balance))})</span>
-      </div>
-      <div class="withdraw-confirm-note">
-        Saldo akan dikirim ke akun WA kamu.<br>
-        Token <strong>${currentToken.token}</strong> akan hangus setelah withdraw.
-      </div>
-      <div class="withdraw-confirm-btns">
-        <button class="withdraw-confirm-yes" onclick="doWithdraw()">✓ &nbsp;Ya, Withdraw</button>
-        <button class="withdraw-confirm-no"  onclick="cancelWithdraw()">✕ &nbsp;Batal</button>
-      </div>
-    </div>
-  `;
-
-  document.querySelector('.glass-card').insertAdjacentElement('afterend', confirm);
-}
-
-function cancelWithdraw() {
-  const el = document.getElementById('withdrawConfirm');
-  if (el) el.remove();
-}
-
-async function doWithdraw() {
-  const el = document.getElementById('withdrawConfirm');
-  if (el) el.remove();
-
-  setStatus('💾 Memproses withdraw...', true);
-
-  try {
-    const freshFile = await getTokenData();
-    const tokens    = freshFile.data.tokens || [];
-    const idx       = tokens.findIndex(t => t.token === currentToken.token);
-
-    if (idx !== -1) {
-      tokens[idx].status      = 'withdrawn';
-      tokens[idx].withdrawAt  = Date.now();
-      tokens[idx].withdrawAmt = currentToken.balance;
-      tokens[idx].balance     = 0;
-    }
-
-    await saveTokenData(freshFile.data, freshFile.sha);
-
-    currentToken.status  = 'withdrawn';
-    currentToken.balance = 0;
-
-    setStatus('✅ Withdraw berhasil! Ketik .wths di bot WA.', true);
-
-    hideGame();
-    const dashboard = document.getElementById('tokenDashboard');
-    if (dashboard) dashboard.remove();
-
-    const spinBtn    = document.getElementById('spinBtn');
-    const gachaInput = document.getElementById('gachaId');
-    if (spinBtn)    { spinBtn.disabled = true; spinBtn.textContent = '🔒'; }
-    if (gachaInput) { gachaInput.disabled = true; }
-
-    showWithdrawDone();
-
-  } catch (err) {
-    console.error('Withdraw error:', err);
-    setStatus('❌ Withdraw gagal: ' + err.message);
-  }
-}
-
-function showWithdrawDone() {
-  const area     = document.createElement('div');
-  area.id        = 'gameArea';
-  area.className = 'game-area';
-  area.innerHTML = `
-    <div class="result-panel win-panel">
-      <span class="result-emoji">💸</span>
-      <div class="result-title">Withdraw Berhasil!</div>
-      <div class="result-desc">
-        Saldo kamu sedang diproses.<br>
-        Ketik <code>.wths ${currentToken?.token}</code> di bot WA untuk cairkan.
-      </div>
-      <div class="result-divider"></div>
-      <div class="result-save-ok">✓ Token ${currentToken?.token} sudah hangus</div>
-    </div>
-  `;
-  document.querySelector('.glass-card').insertAdjacentElement('afterend', area);
-}
 
 /* ────────────────────────────────────────
    EVENTS
@@ -608,3 +509,203 @@ function showWithdrawDone() {
 document.getElementById('gachaId').addEventListener('keydown', e => {
   if (e.key === 'Enter') startSpin();
 });
+
+/* ────────────────────────────────────────
+   ANTI-REFRESH — Auto-restore token dari localStorage
+──────────────────────────────────────── */
+(async function autoRestoreToken() {
+  const savedToken = localStorage.getItem('miwa_token');
+  if (!savedToken) return;
+
+  const input = document.getElementById('gachaId');
+  const btn   = document.getElementById('spinBtn');
+
+  input.value = savedToken;
+  btn.disabled = true;
+  setStatus('🔄 Memulihkan sesi...', true);
+
+  try {
+    currentFile  = await getTokenData();
+    currentToken = (currentFile.data.tokens || []).find(
+      t => t.token.toUpperCase() === savedToken.toUpperCase()
+    );
+
+    if (!currentToken || currentToken.balance <= 0) {
+      localStorage.removeItem('miwa_token');
+      setStatus('Masukkan Token untuk memulai...');
+      input.value = '';
+      btn.disabled = false;
+      return;
+    }
+
+    setStatus('✅ Sesi dipulihkan — pilih game!');
+    showTokenDashboard();
+  } catch (err) {
+    console.error('Auto-restore error:', err);
+    setStatus('Masukkan Token untuk memulai...');
+  } finally {
+    btn.disabled = false;
+  }
+})();
+
+/* ────────────────────────────────────────
+   ANTI-REFRESH POPUP
+──────────────────────────────────────── */
+(function initRefreshGuard() {
+  /* Inject styles */
+  const style = document.createElement('style');
+  style.textContent = `
+    #rfg-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0);
+      backdrop-filter: blur(0px);
+      -webkit-backdrop-filter: blur(0px);
+      transition: background 0.25s ease, backdrop-filter 0.25s ease;
+      pointer-events: none;
+    }
+    #rfg-overlay.rfg-visible {
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      pointer-events: all;
+    }
+    #rfg-box {
+      background: #16161e;
+      border: 1px solid rgba(212,175,90,0.18);
+      border-radius: 24px;
+      padding: 36px 32px 28px;
+      width: min(380px, 90vw);
+      text-align: center;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.04) inset,
+        0 32px 80px rgba(0,0,0,0.7),
+        0 0 40px rgba(212,175,90,0.06);
+      transform: scale(0.88) translateY(16px);
+      opacity: 0;
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), opacity 0.25s ease;
+    }
+    #rfg-overlay.rfg-visible #rfg-box {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+    }
+    #rfg-icon {
+      font-size: 40px;
+      line-height: 1;
+      margin-bottom: 16px;
+      display: block;
+      filter: drop-shadow(0 0 12px rgba(212,175,90,0.4));
+    }
+    #rfg-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 20px;
+      color: #f0ede8;
+      margin-bottom: 8px;
+      letter-spacing: 0.01em;
+    }
+    #rfg-sub {
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      color: #5a5850;
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+    #rfg-sub em {
+      color: #8a7040;
+      font-style: normal;
+    }
+    .rfg-btn-row {
+      display: flex;
+      gap: 10px;
+    }
+    .rfg-btn {
+      flex: 1;
+      padding: 12px;
+      border-radius: 12px;
+      border: none;
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    .rfg-btn:active { transform: scale(0.97); opacity: 0.85; }
+    #rfg-cancel {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #9e9a92;
+    }
+    #rfg-cancel:hover { background: rgba(255,255,255,0.09); color: #f0ede8; }
+    #rfg-confirm {
+      background: linear-gradient(135deg, #cf5c5c, #a83a3a);
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(207,92,92,0.3);
+    }
+    #rfg-confirm:hover { opacity: 0.88; }
+  `;
+  document.head.appendChild(style);
+
+  /* Build DOM */
+  const overlay = document.createElement('div');
+  overlay.id = 'rfg-overlay';
+  overlay.innerHTML = `
+    <div id="rfg-box">
+      <span id="rfg-icon">⚠️</span>
+      <div id="rfg-title">Apakah Anda Yakin Meng-Refresh?</div>
+      <div id="rfg-sub">Sesi game yang sedang berjalan<br>mungkin <em>tidak tersimpan</em>.</div>
+      <div class="rfg-btn-row">
+        <button class="rfg-btn" id="rfg-cancel">✕ &nbsp;Tetap di Sini</button>
+        <button class="rfg-btn" id="rfg-confirm">↺ &nbsp;Refresh</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  let _pendingReload = false;
+
+  function showPopup() {
+    _pendingReload = false;
+    overlay.classList.add('rfg-visible');
+  }
+
+  function hidePopup() {
+    overlay.classList.remove('rfg-visible');
+  }
+
+  document.getElementById('rfg-cancel').addEventListener('click', hidePopup);
+
+  document.getElementById('rfg-confirm').addEventListener('click', () => {
+    _pendingReload = true;
+    hidePopup();
+    location.reload();
+  });
+
+  /* Intercept F5 / Ctrl+R / Cmd+R */
+  document.addEventListener('keydown', e => {
+    const isRefresh =
+      e.key === 'F5' ||
+      ((e.ctrlKey || e.metaKey) && e.key === 'r');
+    if (!isRefresh) return;
+    e.preventDefault();
+    showPopup();
+  });
+
+  /* Intercept browser beforeunload (covers swipe-refresh, address bar enter, tab close) */
+  window.addEventListener('beforeunload', e => {
+    if (_pendingReload) return;
+    e.preventDefault();
+    e.returnValue = '';   /* required for Chrome to trigger the dialog */
+    /* Show our custom popup — best-effort, browser may show native dialog too */
+    showPopup();
+  });
+
+  /* Close overlay if user clicks backdrop */
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) hidePopup();
+  });
+})();
